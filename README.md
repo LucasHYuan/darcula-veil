@@ -218,7 +218,7 @@ JAVA_HOME = C:\Program Files\JetBrains\JetBrains Rider 2024.3.6\jbr
 两个需要留意的点：
 
 - **JBR 是纯 runtime，不带 `javac` / `jar`。** 当前工程没有 `.java` 源文件（`compileJava` 为 NO-SOURCE），所以不受影响；将来若加 Java 源码，或有别的工具靠 `JAVA_HOME` 找编译器，需要换一个完整 JDK 25。
-- **路径里带 Rider 的安装目录名。** Rider 升级换目录后 `JAVA_HOME` 会失效，需要重新指。注意这个目录名不等于实际版本号——当前目录叫 `2024.3.6`，`build.txt` 里其实是 `RD-262.8665.400`。
+- **目录名不等于版本号。** 安装目录叫 `JetBrains Rider 2024.3.6`，但 `build.txt` 是 `RD-262.8665.400`、`rider64.exe` 的 ProductVersion 是 `262.8665.400.0-RD`，实际是 2026.2。原因是 JetBrains 独立安装包走原地升级，目录名保留首次安装时的版本。**因此这个路径是稳定的**，日常升级不会失效；只有卸载重装或迁移到 Toolbox 管理时，才需要同步更新 `JAVA_HOME` 和 `platformLocalPath`。
 
 ### 6.3 JCEF 的依赖声明
 
