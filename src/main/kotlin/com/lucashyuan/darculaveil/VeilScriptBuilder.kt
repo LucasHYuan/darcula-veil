@@ -28,8 +28,12 @@ object VeilScriptBuilder {
                         style.id = "$STYLE_ELEMENT_ID";
                         root.appendChild(style);
                     }
-                    if (style.textContent !== css) {
-                        style.textContent = css;
+                    var safeCss = css;
+                    if (markup.length > 0 && !document.getElementById("$SVG_ELEMENT_ID")) {
+                        safeCss = "";
+                    }
+                    if (style.textContent !== safeCss) {
+                        style.textContent = safeCss;
                     }
                 }
 
@@ -53,8 +57,8 @@ object VeilScriptBuilder {
                 }
 
                 function apply() {
-                    ensureStyle();
                     ensureSvg();
+                    ensureStyle();
                 }
 
                 window.$STATE_PROPERTY = { apply: apply, hasSvg: markup.length > 0, scheduled: false };

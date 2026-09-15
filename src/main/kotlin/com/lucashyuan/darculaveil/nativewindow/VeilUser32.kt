@@ -33,6 +33,8 @@ interface VeilUser32 : StdCallLibrary {
 
     fun GetClientRect(hWnd: HWND, rect: RECT): Boolean
 
+    fun GetWindowRect(hWnd: HWND, rect: RECT): Boolean
+
     fun ShowWindow(hWnd: HWND, command: Int): Boolean
 
     fun AttachThreadInput(attachFrom: Int, attachTo: Int, attach: Boolean): Boolean

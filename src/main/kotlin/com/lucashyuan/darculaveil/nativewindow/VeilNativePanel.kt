@@ -9,26 +9,32 @@ import com.sun.jna.Native
 import com.sun.jna.platform.win32.WinDef.HWND
 import java.awt.BorderLayout
 import java.awt.Canvas
+import java.awt.Dimension
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.JPanel
 import javax.swing.SwingConstants
+import javax.swing.SwingUtilities
 import javax.swing.Timer
 
 class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
     private val canvas = HostCanvas()
     private val placeholder = JBLabel("No window embedded. Use Pick Window in the tool window title bar.", SwingConstants.CENTER)
-    private val aliveTimer = Timer(ALIVE_POLL_INTERVAL_MS) { checkTargetAlive() }
+    private val watchdog = Timer(WATCHDOG_INTERVAL_MS) { tick() }
 
     private var embedder: VeilWindowEmbedder? = null
     private var target: VeilWindowInfo? = null
+    private var lastTarget: VeilWindowInfo? = null
 
     init {
         canvas.background = UIUtil.getPanelBackground()
+        canvas.minimumSize = SHRINKABLE_SIZE
+        canvas.preferredSize = SHRINKABLE_SIZE
         background = UIUtil.getPanelBackground()
+        minimumSize = SHRINKABLE_SIZE
         add(placeholder, BorderLayout.CENTER)
         installCanvasListeners()
     }
@@ -37,17 +43,27 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
     fun hasEmbeddedWindow(): Boolean = target != null
 
+    fun canReembed(): Boolean = target == null && lastTarget != null
+
+    fun lastTargetTitle(): String = lastTarget?.title ?: ""
+
     fun embed(info: VeilWindowInfo) {
         releaseEmbedder()
         target = info
+        lastTarget = info
         showCanvas()
+        attachToCanvas()
+        watchdog.start()
+    }
 
-        if (embedder == null) {
-            attachToCanvas()
-        }
+    fun reembedLast() {
+        val info = lastTarget ?: return
+
+        embed(info)
     }
 
     fun detach() {
+        watchdog.stop()
         releaseEmbedder()
         target = null
         showPlaceholder()
@@ -66,10 +82,16 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         detach()
     }
 
+    override fun getMinimumSize(): Dimension = SHRINKABLE_SIZE
+
     private fun installCanvasListeners() {
         canvas.addComponentListener(object : ComponentAdapter() {
             override fun componentResized(event: ComponentEvent) {
                 syncGeometry()
+            }
+
+            override fun componentShown(event: ComponentEvent) {
+                scheduleAttach()
             }
         })
 
@@ -80,12 +102,41 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         })
     }
 
+    private fun tick() {
+        val current = embedder
+
+        if (current == null) {
+            scheduleAttach()
+            return
+        }
+
+        if (current.isAlive()) {
+            return
+        }
+
+        LOG.info("Embedded window disappeared, detaching")
+        detach()
+    }
+
+    private fun scheduleAttach() {
+        if (target == null || embedder != null) {
+            return
+        }
+
+        SwingUtilities.invokeLater { attachToCanvas() }
+    }
+
     private fun attachToCanvas() {
         val info = target ?: return
+
+        if (embedder != null) {
+            return
+        }
+
         val host = resolveCanvasHandle()
 
         if (host == null) {
-            LOG.warn("Canvas peer is not available, cannot embed ${info.title}")
+            LOG.info("Canvas peer not ready, deferring embed of ${info.title}")
             return
         }
 
@@ -94,11 +145,10 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         created.attach()
         created.applyOpacity(settings.nativeLayeredEnabled, settings.nativeOpacityPercent)
         embedder = created
-        aliveTimer.start()
+        LOG.info("Embedded window ${info.title}")
     }
 
     private fun releaseEmbedder() {
-        aliveTimer.stop()
         embedder?.detach()
         embedder = null
     }
@@ -126,7 +176,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
     }
 
     private fun resolveCanvasHandle(): HWND? {
-        if (!canvas.isDisplayable) {
+        if (!canvas.isDisplayable || canvas.width <= 0 || canvas.height <= 0) {
             return null
         }
 
@@ -135,28 +185,20 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         return HWND(pointer)
     }
 
-    private fun checkTargetAlive() {
-        val current = embedder ?: return
-
-        if (current.isAlive()) {
-            return
-        }
-
-        LOG.info("Embedded window disappeared, detaching")
-        detach()
-    }
-
     private inner class HostCanvas : Canvas() {
+
+        override fun getMinimumSize(): Dimension = SHRINKABLE_SIZE
+
+        override fun getPreferredSize(): Dimension = SHRINKABLE_SIZE
 
         override fun addNotify() {
             super.addNotify()
-
-            if (target != null && embedder == null) {
-                attachToCanvas()
-            }
+            LOG.info("Canvas peer created")
+            scheduleAttach()
         }
 
         override fun removeNotify() {
+            LOG.info("Canvas peer about to be destroyed, releasing embedded window")
             releaseEmbedder()
             super.removeNotify()
         }
@@ -164,6 +206,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
     companion object {
         private val LOG = Logger.getInstance(VeilNativePanel::class.java)
-        private const val ALIVE_POLL_INTERVAL_MS = 1000
+        private const val WATCHDOG_INTERVAL_MS = 1000
+        private val SHRINKABLE_SIZE = Dimension(1, 1)
     }
 }

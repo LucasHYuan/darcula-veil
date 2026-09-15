@@ -10,6 +10,7 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.content.ContentFactory
 import com.lucashyuan.darculaveil.action.DetachNativeWindowAction
+import com.lucashyuan.darculaveil.action.ReembedNativeWindowAction
 import com.lucashyuan.darculaveil.action.SelectNativeWindowAction
 import com.lucashyuan.darculaveil.action.SyncNativeWindowAction
 import javax.swing.JComponent
@@ -31,7 +32,7 @@ class VeilNativeToolWindowFactory : ToolWindowFactory, DumbAware {
     }
 
     private fun buildTitleActions(panel: VeilNativePanel): List<AnAction> {
-        return listOf(SelectNativeWindowAction(panel), SyncNativeWindowAction(panel), DetachNativeWindowAction(panel))
+        return listOf(SelectNativeWindowAction(panel), ReembedNativeWindowAction(panel), SyncNativeWindowAction(panel), DetachNativeWindowAction(panel))
     }
 
     private fun unsupportedPlaceholder(): JComponent {

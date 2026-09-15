@@ -10,6 +10,7 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
     private val originalStyle = user32.GetWindowLong(target, VeilUser32.GWL_STYLE)
     private val originalExStyle = user32.GetWindowLong(target, VeilUser32.GWL_EXSTYLE)
     private val originalParent = user32.GetParent(target)
+    private val originalBounds = readWindowBounds()
 
     private var detached = false
 
@@ -36,7 +37,7 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         user32.SetParent(target, originalParent)
         user32.SetWindowLong(target, VeilUser32.GWL_STYLE, originalStyle)
         user32.SetWindowLong(target, VeilUser32.GWL_EXSTYLE, originalExStyle)
-        user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+        restoreBounds()
         user32.ShowWindow(target, VeilUser32.SW_SHOW)
     }
 
@@ -93,6 +94,30 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
     }
 
     fun isAlive(): Boolean = user32.IsWindow(target)
+
+    private fun readWindowBounds(): RECT? {
+        val bounds = RECT()
+
+        if (!user32.GetWindowRect(target, bounds)) {
+            return null
+        }
+
+        return bounds
+    }
+
+    private fun restoreBounds() {
+        val bounds = originalBounds
+
+        if (bounds == null) {
+            user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+            return
+        }
+
+        val width = bounds.right - bounds.left
+        val height = bounds.bottom - bounds.top
+
+        user32.SetWindowPos(target, null, bounds.left, bounds.top, width, height, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+    }
 
     private fun buildChildStyle(): Int {
         val removed = VeilUser32.WS_POPUP or VeilUser32.WS_CAPTION or VeilUser32.WS_THICKFRAME or VeilUser32.WS_MINIMIZEBOX or VeilUser32.WS_MAXIMIZEBOX or VeilUser32.WS_SYSMENU

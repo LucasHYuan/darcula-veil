@@ -263,6 +263,15 @@ private inner class HostCanvas : Canvas() {
 
 **默认关闭。** 给一个外部进程的窗口加 `WS_EX_LAYERED` 会强制走窗口重定向，可能拖慢甚至破坏 D3D 渲染。值不值得自己试。
 
+### 实测暴露的四个缺陷
+
+| 症状 | 根因 | 修法 |
+|---|---|---|
+| 工具窗只能拉宽拉不窄 | `java.awt.Canvas.getMinimumSize()` 默认回落到 peer 的当前尺寸。窗口一旦变大，最小尺寸跟着变大，IDE 的分隔条就再也退不回去，形成棘轮 | `HostCanvas` 覆写 `getMinimumSize()` / `getPreferredSize()` 恒返回 `1x1`，面板同样覆写 |
+| Detach 之后找不到窗口，也没法重新嵌入 | 还原时只恢复了 style 和 parent，**没有恢复位置尺寸**，窗口带着子窗口坐标变回顶层，通常落在屏幕左上角；而且 target 被清空，没有任何入口重来 | 嵌入前 `GetWindowRect` 存原始矩形，detach 时一并还原；新增 `lastTarget` 与 `Re-embed Last Window` 动作 |
+| 工具窗收起后窗口弹出去、再打开回不来 | 收起会销毁 Canvas peer，`removeNotify` 正确解绑；但重新展开时 `addNotify` 里立刻取 HWND，peer 尚未完全就绪，取不到就**静默放弃且无人重试** | 改为 `invokeLater` 延迟挂载，并让 watchdog 定时器在 `target != null && embedder == null` 时持续重试，`componentShown` 也触发一次 |
+| 网页偶发整页消失 | 注入顺序是先写 `filter: url(#id)` 再插 SVG。两者之间存在窗口期，且 SVG 被页面清掉后同样会命中——引用不存在的 filter 时 Chromium 直接不渲染该元素 | 调换顺序（先 SVG 后 style），并在写 CSS 前校验 filter 确实在文档里，不在就写空 CSS。失败模式从"整页不可见"降级为"没有主题化" |
+
 ### 使用限制
 
 - **目标必须是窗口化或无边框窗口化。** 独占全屏的 D3D 窗口 reparent 之后行为未定义，先在游戏里切到 Borderless。

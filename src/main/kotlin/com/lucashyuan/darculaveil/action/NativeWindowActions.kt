@@ -31,6 +31,20 @@ class SelectNativeWindowAction(private val panel: VeilNativePanel) : AnAction("P
     }
 }
 
+class ReembedNativeWindowAction(private val panel: VeilNativePanel) : AnAction("Re-embed Last Window", "Embed the window that was detached last", AllIcons.Actions.Rerun) {
+
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        e.presentation.isEnabled = panel.canReembed()
+        e.presentation.text = if (panel.canReembed()) "Re-embed ${panel.lastTargetTitle()}" else "Re-embed Last Window"
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        panel.reembedLast()
+    }
+}
+
 class DetachNativeWindowAction(private val panel: VeilNativePanel) : AnAction("Detach", "Restore the embedded window to its own top level frame", AllIcons.Actions.Cancel) {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
