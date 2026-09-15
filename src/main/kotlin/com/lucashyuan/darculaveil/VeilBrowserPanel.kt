@@ -4,9 +4,13 @@ import com.intellij.ide.ui.LafManager
 import com.intellij.ide.ui.LafManagerListener
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.editor.colors.EditorColorsListener
+import com.intellij.openapi.editor.colors.EditorColorsManager
+import com.intellij.openapi.editor.colors.EditorColorsScheme
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.util.ui.UIUtil
+import com.lucashyuan.darculaveil.style.VeilStyleStrategies
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.handler.CefLoadHandlerAdapter
@@ -38,12 +42,22 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
     }
 
     fun refreshVeil() {
-        val settings = VeilSettings.state()
-        val script = if (settings.veilEnabled) VeilCss.buildInjectScript(VeilCss.buildCss(settings)) else VeilCss.buildRemoveScript()
-        executeScript(script)
+        executeScript(buildVeilScript())
     }
 
     override fun dispose() {
+    }
+
+    private fun buildVeilScript(): String {
+        val settings = VeilSettings.state()
+
+        if (!settings.veilEnabled) {
+            return VeilScriptBuilder.buildRemoveScript()
+        }
+
+        val strategy = VeilStyleStrategies.byId(settings.styleModeId)
+
+        return VeilScriptBuilder.buildInjectScript(strategy.buildDocument(settings))
     }
 
     private fun installLoadHandler() {
@@ -67,6 +81,10 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
 
         connection.subscribe(LafManagerListener.TOPIC, LafManagerListener { _: LafManager ->
             background = UIUtil.getPanelBackground()
+            refreshVeil()
+        })
+
+        connection.subscribe(EditorColorsManager.TOPIC, EditorColorsListener { _: EditorColorsScheme? ->
             refreshVeil()
         })
     }

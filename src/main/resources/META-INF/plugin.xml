@@ -16,6 +16,11 @@
         <toolWindow id="Darcula Veil"
                     anchor="right"
                     factoryClass="com.lucashyuan.darculaveil.VeilToolWindowFactory"/>
+
+        <applicationConfigurable parentId="tools"
+                                 id="com.lucashyuan.darculaveil.settings"
+                                 displayName="Darcula Veil"
+                                 instance="com.lucashyuan.darculaveil.VeilConfigurable"/>
     </extensions>
 
     <actions>

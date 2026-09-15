@@ -61,9 +61,33 @@ img, video, canvas, svg {
 
 成本最低，副作用也最明显：媒体元素必须反选回来，否则图片全变负片；`filter` 会创建新的 containing block，`position: fixed` 的元素会错位。适合做"能用就行"的第一版，配一个强度滑杆（把 filter 各项参数做成变量）。
 
-**档位二：色板重映射**
+**档位二：色板量化（SVG feComponentTransfer）**
 
-注入的 CSS 不做 filter，而是覆写 CSS 自定义属性，把页面配色直接映射到从 `JBColor` / `EditorColorsManager` 读出来的 IDE 实际色值。需要对目标页面的样式结构有先验知识，通用性差但效果远好于 filter。
+档位一是**连续变换**——页面原有多少种颜色，输出还是多少种，只是整体挪了位置。所以它产出的是"一个偏暗的网页"，而不是"一个 Darcula 风格的界面"。真正让内容融进 IDE 的是**离散量化**：不管原页面有几万种颜色，最终只允许出现 N 种，且这 N 种全部来自当前主题。
+
+CSS filter 函数里没有量化能力，但 SVG filter 有，并且可以通过 `filter: url(#id)` 作用在 HTML 元素上：
+
+```xml
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0">
+  <filter id="darcula-veil-quantize" color-interpolation-filters="sRGB">
+    <feColorMatrix type="saturate" values="0.00"/>
+    <feComponentTransfer>
+      <feFuncR type="discrete" tableValues="0.1176 0.2392 0.6588 0.8039"/>
+      <feFuncG type="discrete" tableValues="0.1216 0.2627 0.5529 0.8471"/>
+      <feFuncB type="discrete" tableValues="0.1333 0.3020 0.4510 0.7216"/>
+    </feComponentTransfer>
+  </filter>
+</svg>
+```
+
+`type="discrete"` 把 0~1 的输入切成 N 段，每段输出 `tableValues` 里对应的固定值。三个通道各一张表，本质就是一个 **gradient map**：亮度 → 色阶索引 → 具体 RGB。表里的数值由 `EditorColorsScheme` 实时生成，换主题自动跟着变。
+
+相比 canvas 方案的优势：纯 CSS/SVG，GPU 合成，**不读取像素数据，因此完全不受跨域 taint 限制**，对任意页面通用。
+
+**两个必须知道的坑：**
+
+- **`color-interpolation-filters="sRGB"` 不能省。** SVG filter 默认在 linearRGB 空间运算，不显式指定的话整体会发灰发错，这是最容易翻车的一行。
+- **祖先元素上的 SVG filter 无法被后代撤销。** 档位一的 `invert(1)` 是自逆的，所以能对图片"反选回来"；量化没有逆运算。因此量化模式下图片和视频**一定**会被一起量化，无法豁免。设置面板里那个媒体还原开关只对档位一生效。
 
 **档位三：字符网格渲染（进阶方案）**
 
@@ -180,7 +204,7 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 + 老板键 | 已实现，构建通过，未运行验证 |
-| **P2** | 主题化档位二：读 `EditorColorsManager` 色板，做 CSS 变量重映射；强度可调 UI | 设计中 |
+| **P2** | 主题化档位二：SVG 色板量化 + 双色板来源 + 设置面板 | 已实现，构建通过，未运行验证 |
 | **P3** | 字符网格渲染；同源内容先行，跨域场景评估 OSR | 设计中 |
 | **P4** | 路线 B 原型：reparent + 几何同步 + 焦点交接，限定无 anti-cheat 目标 | 设计中 |
 | **P5** | Layered overlay 合成层，alpha 运行时可调 | 设计中 |
@@ -192,7 +216,32 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 | `DarculaVeil.Toggle` | `Ctrl+Alt+Shift+V` | 开关主题化滤镜，页面不重新加载 |
 | `DarculaVeil.BossKey` | **未绑定**，自行在 `Settings → Keymap` 挂 | 可见时：暂停所有 `<video>` / `<audio>` 后收起 tool window；已隐藏时：重新唤出。恢复不自动续播 |
 
-老板键的媒体暂停只覆盖**主文档**里的媒体元素。跨域 iframe 内部（典型如第三方播放器嵌入）受同源策略限制，`querySelectorAll` 够不到，声音不会停。要覆盖这种情况得走 §2.3 的 OSR 层，或者对每个 frame 单独注入——P2 再处理。
+老板键的媒体暂停只覆盖**主文档**里的媒体元素。跨域 iframe 内部（典型如第三方播放器嵌入）受同源策略限制，`querySelectorAll` 够不到，声音不会停。要覆盖这种情况得走 §2.3 的 OSR 层，或者对每个 frame 单独注入——尚未处理。
+
+### P2 的设置面板
+
+`Settings → Tools → Darcula Veil`。改动在 `apply()` 里写回设置后，通过 `VeilStateListener.TOPIC` 广播，所有打开的面板立即重绘——**不需要重启 IDE**，因为 `refreshVeil()` 每次都是现读设置。
+
+| 设置项 | 默认 | 说明 |
+|---|---|---|
+| Style mode | Palette quantization | 在量化与连续滤镜两种策略间切换 |
+| Palette source | Syntax highlighting colors | `Monochrome` 只取编辑器前景/背景做插值；`Syntax` 额外取 comment / keyword / string / number / function / class 的前景色，按亮度排序组成色带 |
+| Palette steps | 6 | 最终允许出现的颜色数量，2~16 |
+| Pre-quantize saturation | 0 | 量化前的 `feColorMatrix saturate` 值。0 = 先完全去色，纯按亮度映射到色板；调高则保留部分原始色相，与色板混合 |
+| Invert / Hue rotate / Saturate / Brightness / Contrast | 92 / 180 / 85 / 95 / 100 | 仅作用于连续滤镜模式 |
+| Restore original colors on images and video | 开 | 仅作用于连续滤镜模式，量化模式下无效（见 §2.2） |
+
+### 策略与色板的扩展点
+
+模式分支没有写成 `if` / `when`，而是两组接口：
+
+```
+VeilStyleStrategy          VeilPaletteProvider
+  ├─ PaletteStyleStrategy    ├─ MonochromePaletteProvider
+  └─ FilterStyleStrategy     └─ SyntaxPaletteProvider
+```
+
+新增一种呈现模式或一种取色方案，只需实现接口并登记进 `VeilStyleStrategies.ALL` / `VeilPaletteProviders.ALL`，设置面板的下拉框由 `displayNames()` 自动生成，无需改动 UI 代码。
 
 ---
 
