@@ -33,6 +33,10 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
         browser.cefBrowser.reload()
     }
 
+    fun pauseMedia() {
+        executeScript(VeilMediaScript.buildPauseScript())
+    }
+
     fun refreshVeil() {
         val settings = VeilSettings.state()
         val script = if (settings.veilEnabled) VeilCss.buildInjectScript(VeilCss.buildCss(settings)) else VeilCss.buildRemoveScript()

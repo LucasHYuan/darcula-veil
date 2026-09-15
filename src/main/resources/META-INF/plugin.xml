@@ -26,5 +26,12 @@
             <add-to-group group-id="ToolsMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift V"/>
         </action>
+
+        <action id="DarculaVeil.BossKey"
+                class="com.lucashyuan.darculaveil.action.BossKeyAction"
+                text="Darcula Veil: Hide and Pause"
+                description="Hide the Darcula Veil tool window and pause any playing media; press again to restore">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
     </actions>
 </idea-plugin>

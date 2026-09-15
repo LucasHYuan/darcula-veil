@@ -49,6 +49,8 @@ class VeilToolWindowFactory : ToolWindowFactory, DumbAware {
     }
 
     companion object {
+        const val TOOL_WINDOW_ID = "Darcula Veil"
+
         private const val TOGGLE_ACTION_ID = "DarculaVeil.Toggle"
     }
 }

@@ -179,11 +179,20 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 | 已实现，构建通过，未运行验证 |
+| **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 + 老板键 | 已实现，构建通过，未运行验证 |
 | **P2** | 主题化档位二：读 `EditorColorsManager` 色板，做 CSS 变量重映射；强度可调 UI | 设计中 |
 | **P3** | 字符网格渲染；同源内容先行，跨域场景评估 OSR | 设计中 |
 | **P4** | 路线 B 原型：reparent + 几何同步 + 焦点交接，限定无 anti-cheat 目标 | 设计中 |
 | **P5** | Layered overlay 合成层，alpha 运行时可调 | 设计中 |
+
+### P1 的两个 Action
+
+| Action ID | 默认键位 | 行为 |
+|---|---|---|
+| `DarculaVeil.Toggle` | `Ctrl+Alt+Shift+V` | 开关主题化滤镜，页面不重新加载 |
+| `DarculaVeil.BossKey` | **未绑定**，自行在 `Settings → Keymap` 挂 | 可见时：暂停所有 `<video>` / `<audio>` 后收起 tool window；已隐藏时：重新唤出。恢复不自动续播 |
+
+老板键的媒体暂停只覆盖**主文档**里的媒体元素。跨域 iframe 内部（典型如第三方播放器嵌入）受同源策略限制，`querySelectorAll` 够不到，声音不会停。要覆盖这种情况得走 §2.3 的 OSR 层，或者对每个 frame 单独注入——P2 再处理。
 
 ---
 
