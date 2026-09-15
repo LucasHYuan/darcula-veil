@@ -32,6 +32,9 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         @JvmField var brightnessPercent: Int = 95
         @JvmField var contrastPercent: Int = 100
         @JvmField var revertMedia: Boolean = true
+
+        @JvmField var nativeLayeredEnabled: Boolean = false
+        @JvmField var nativeOpacityPercent: Int = DEFAULT_NATIVE_OPACITY_PERCENT
     }
 
     private val currentState = State()
@@ -54,6 +57,9 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         const val MAX_PERCENT = 200
         const val MIN_HUE_DEGREES = 0
         const val MAX_HUE_DEGREES = 360
+        const val DEFAULT_NATIVE_OPACITY_PERCENT = 100
+        const val MIN_NATIVE_OPACITY_PERCENT = 10
+        const val MAX_NATIVE_OPACITY_PERCENT = 100
 
         fun getInstance(): VeilSettings = ApplicationManager.getApplication().getService(VeilSettings::class.java)
 

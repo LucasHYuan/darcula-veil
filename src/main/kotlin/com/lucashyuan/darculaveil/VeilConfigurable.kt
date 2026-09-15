@@ -36,6 +36,9 @@ class VeilConfigurable : Configurable {
     private val contrastSpinner = buildPercentSpinner()
     private val revertMediaCheckBox = JBCheckBox("Restore original colors on images and video")
 
+    private val nativeLayeredCheckBox = JBCheckBox("Blend the embedded window with the IDE background (WS_EX_LAYERED)")
+    private val nativeOpacitySpinner = buildSpinner(VeilSettings.MIN_NATIVE_OPACITY_PERCENT, VeilSettings.MAX_NATIVE_OPACITY_PERCENT)
+
     override fun getDisplayName(): String = "Darcula Veil"
 
     override fun createComponent(): JComponent {
@@ -60,6 +63,10 @@ class VeilConfigurable : Configurable {
             .addLabeledComponent(JBLabel("Brightness (%):"), brightnessSpinner, 1, false)
             .addLabeledComponent(JBLabel("Contrast (%):"), contrastSpinner, 1, false)
             .addComponent(revertMediaCheckBox)
+            .addComponent(TitledSeparator("Native Window Embedding"))
+            .addComponent(nativeLayeredCheckBox)
+            .addLabeledComponent(JBLabel("Window opacity (%):"), nativeOpacitySpinner, 1, false)
+            .addComponentToRightColumn(JBLabel("<html>Making a foreign window layered can break or slow down D3D rendering.<br>Leave it off unless the blend is worth it. Applies on Resync Geometry.</html>"))
             .addComponentFillVertically(JBLabel(""), 0)
             .panel
     }
@@ -81,6 +88,8 @@ class VeilConfigurable : Configurable {
             || value(brightnessSpinner) != settings.brightnessPercent
             || value(contrastSpinner) != settings.contrastPercent
             || revertMediaCheckBox.isSelected != settings.revertMedia
+            || nativeLayeredCheckBox.isSelected != settings.nativeLayeredEnabled
+            || value(nativeOpacitySpinner) != settings.nativeOpacityPercent
     }
 
     override fun apply() {
@@ -99,6 +108,8 @@ class VeilConfigurable : Configurable {
         settings.brightnessPercent = value(brightnessSpinner)
         settings.contrastPercent = value(contrastSpinner)
         settings.revertMedia = revertMediaCheckBox.isSelected
+        settings.nativeLayeredEnabled = nativeLayeredCheckBox.isSelected
+        settings.nativeOpacityPercent = value(nativeOpacitySpinner)
 
         ApplicationManager.getApplication().messageBus.syncPublisher(VeilStateListener.TOPIC).veilStateChanged()
     }
@@ -119,6 +130,8 @@ class VeilConfigurable : Configurable {
         brightnessSpinner.value = settings.brightnessPercent
         contrastSpinner.value = settings.contrastPercent
         revertMediaCheckBox.isSelected = settings.revertMedia
+        nativeLayeredCheckBox.isSelected = settings.nativeLayeredEnabled
+        nativeOpacitySpinner.value = settings.nativeOpacityPercent
         palettePreview.repaint()
     }
 

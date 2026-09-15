@@ -1,6 +1,6 @@
 # Darcula Veil
 
-> **状态：设计阶段。P1 已实现并构建通过，P2–P5 未实现。**
+> **状态：P1-P4 已实现并构建通过，P5 部分实现。全部未经运行验证。**
 > 本文档主体是架构方案与技术调研结论。除第 5 节标注为"已实现"的部分外，其余均为设计稿，未落地为代码。
 > P1 已通过 `./gradlew buildPlugin` 构建，但尚未在 IDE 中实际运行验证。
 
@@ -208,8 +208,66 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 | **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 + 老板键 | 已实现，构建通过，未运行验证 |
 | **P2** | 主题化档位二：SVG 色板量化 + 双色板来源 + 设置面板 | 已实现，构建通过，未运行验证 |
 | **P3** | 字符网格渲染；同源内容先行，跨域场景评估 OSR | 设计中 |
-| **P4** | 路线 B 原型：reparent + 几何同步 + 焦点交接，限定无 anti-cheat 目标 | 设计中 |
-| **P5** | Layered overlay 合成层，alpha 运行时可调 | 设计中 |
+| **P4** | 路线 B：reparent + 几何同步 + 焦点交接 + peer 生命周期 | 已实现，构建通过，未运行验证 |
+| **P5** | 合成层。**未按原设计实现**，改用 `WS_EX_LAYERED` 整窗 alpha，见下 | 部分实现 |
+
+### P4：原生窗口嵌入
+
+独立的工具窗 `Darcula Veil Window`，标题栏三个按钮：Pick Window / Resync Geometry / Detach。
+
+`Pick Window` 通过 `EnumWindows` 列出所有可见、无父窗口、标题非空的顶层窗口。**同进程的窗口被强制排除**——把 IDE 自己的窗口 reparent 进自己的 tool window 会立刻死锁。
+
+嵌入流程：
+
+```
+GetWindowLong 保存 style / exStyle / parent
+  → style 去掉 WS_POPUP|WS_CAPTION|WS_THICKFRAME|WS_SYSMENU|WS_MIN/MAXIMIZEBOX，加 WS_CHILD
+  → exStyle 去掉 WS_EX_APPWINDOW，加 WS_EX_TOOLWINDOW
+  → SetParent(target, canvasHwnd)
+  → SetWindowPos(SWP_FRAMECHANGED)     // style 改完必须刷 frame，否则边框残留
+```
+
+几何同步不做 DPI 换算，而是直接对宿主 HWND 调 `GetClientRect` 取**设备像素**再 `SetWindowPos`。这样绕开了 AWT 逻辑像素与 HiDPI 缩放的换算问题，跨屏拖动也自然正确。
+
+焦点交接在 Canvas 的 `mousePressed` 里做：`AttachThreadInput` 建立关联 → `SetFocus` → 立刻解除关联。长期 attach 会让两个进程的输入状态互相污染。
+
+### 子窗口会随宿主 peer 一起被销毁
+
+这是路线 B 最危险的一点，不是理论风险：**Win32 销毁父窗口时会连带销毁所有子窗口。** 工具窗停靠↔浮动切换、IDE 全屏切换，都会让 AWT 销毁并重建 Canvas 的 peer。如果此时目标窗口还挂在旧 HWND 下，它会被一起干掉——对游戏来说就是窗口没了、进程可能直接崩。
+
+因此宿主必须是 `Canvas` 的子类，在 peer 销毁**之前**解绑：
+
+```kotlin
+private inner class HostCanvas : Canvas() {
+    override fun addNotify() {
+        super.addNotify()
+        if (target != null && embedder == null) { attachToCanvas() }
+    }
+
+    override fun removeNotify() {
+        releaseEmbedder()      // 必须在 super 之前，super 会销毁 peer
+        super.removeNotify()
+    }
+}
+```
+
+`HierarchyListener` 的 `DISPLAYABILITY_CHANGED` 在这里**不够用**——它在 peer 已经销毁之后才触发，那时目标窗口已经没了。
+
+同样的道理：**IDE 崩溃或被强杀时来不及解绑，嵌入的窗口会跟着消失。** 这个没有办法兜底，是路线 B 的固有代价。
+
+### P5 的实现与原设计的偏离
+
+原设计是再建一个 `WS_EX_LAYERED | WS_EX_TRANSPARENT` 的 overlay 子窗口做合成层。实际实现改成了更简单的方案：直接给目标窗口加 `WS_EX_LAYERED` 并用 `SetLayeredWindowAttributes` 调整整窗 alpha，让它与 Canvas 背景（IDE 面板色）混合。
+
+代价是效果更弱——只能整体调透明度，做不了渐晕、扫描线这类叠加图案。收益是省掉了自建窗口类、注册 WNDCLASS、`UpdateLayeredWindow` 逐像素合成这一整套。
+
+**默认关闭。** 给一个外部进程的窗口加 `WS_EX_LAYERED` 会强制走窗口重定向，可能拖慢甚至破坏 D3D 渲染。值不值得自己试。
+
+### 使用限制
+
+- **目标必须是窗口化或无边框窗口化。** 独占全屏的 D3D 窗口 reparent 之后行为未定义，先在游戏里切到 Borderless。
+- **Anti-cheat 风险自负。** `SetParent` 到外部进程窗口、跨进程 `AttachThreadInput`，都可能被 anti-cheat 判定为注入特征。本项目不提供任何规避手段，也不建议对带 EAC / BattlEye / VAC 的游戏使用。
+- Detach 会把 style、exStyle、parent 全部还原回嵌入前的值。
 
 ### P1 的两个 Action
 
