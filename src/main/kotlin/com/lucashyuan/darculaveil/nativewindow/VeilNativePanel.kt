@@ -28,6 +28,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
     private var embedder: VeilWindowEmbedder? = null
     private var target: VeilWindowInfo? = null
     private var lastTarget: VeilWindowInfo? = null
+    private var concealed = false
 
     init {
         canvas.background = UIUtil.getPanelBackground()
@@ -64,9 +65,20 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
     fun detach() {
         watchdog.stop()
+        concealed = false
         releaseEmbedder()
         target = null
         showPlaceholder()
+    }
+
+    fun conceal() {
+        concealed = true
+        embedder?.setVisible(false)
+    }
+
+    fun reveal() {
+        concealed = false
+        embedder?.setVisible(true)
     }
 
     fun syncGeometry() {
@@ -144,12 +156,13 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         val created = VeilWindowEmbedder(info.handle, host)
         created.attach()
         created.applyOpacity(settings.nativeLayeredEnabled, settings.nativeOpacityPercent)
+        created.setVisible(!concealed)
         embedder = created
-        LOG.info("Embedded window ${info.title}")
+        LOG.info("Embedded window ${info.title}, concealed=$concealed")
     }
 
     private fun releaseEmbedder() {
-        embedder?.detach()
+        embedder?.detach(!concealed)
         embedder = null
     }
 

@@ -19,11 +19,18 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         user32.SetWindowLong(target, VeilUser32.GWL_EXSTYLE, buildChildExStyle())
         user32.SetParent(target, host)
         user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
-        user32.ShowWindow(target, VeilUser32.SW_SHOW)
         syncGeometry()
     }
 
-    fun detach() {
+    fun setVisible(visible: Boolean) {
+        if (detached || !isAlive()) {
+            return
+        }
+
+        user32.ShowWindow(target, if (visible) VeilUser32.SW_SHOW else VeilUser32.SW_HIDE)
+    }
+
+    fun detach(showAfterDetach: Boolean) {
         if (detached) {
             return
         }
@@ -38,7 +45,10 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         user32.SetWindowLong(target, VeilUser32.GWL_STYLE, originalStyle)
         user32.SetWindowLong(target, VeilUser32.GWL_EXSTYLE, originalExStyle)
         restoreBounds()
-        user32.ShowWindow(target, VeilUser32.SW_SHOW)
+
+        if (showAfterDetach) {
+            user32.ShowWindow(target, VeilUser32.SW_SHOW)
+        }
     }
 
     fun syncGeometry() {

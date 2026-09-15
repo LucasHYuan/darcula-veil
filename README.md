@@ -283,9 +283,26 @@ private inner class HostCanvas : Canvas() {
 | Action ID | 默认键位 | 行为 |
 |---|---|---|
 | `DarculaVeil.Toggle` | `Ctrl+Alt+Shift+V` | 开关主题化滤镜，页面不重新加载 |
-| `DarculaVeil.BossKey` | **未绑定**，自行在 `Settings → Keymap` 挂 | 可见时：暂停所有 `<video>` / `<audio>` 后收起 tool window；已隐藏时：重新唤出。恢复不自动续播 |
+| `DarculaVeil.BossKey` | **未绑定**，自行在 `Settings → Keymap` 挂 | 同时作用于两个工具窗，见下 |
 
 工具窗标题栏还有四个只在面板内生效的按钮：后退 / 前进 / 刷新 / 改地址。后退前进按 `CefBrowser.canGoBack()` / `canGoForward()` 自动置灰。
+
+### 老板键为什么不能只是 hide 工具窗
+
+一个键管两个工具窗，但两边的隐藏含义完全不同。
+
+网页侧直接 `hide()` 即可，附带暂停主文档里的 `<video>` / `<audio>`。
+
+**原生侧直接 `hide()` 会适得其反。** 收起工具窗会销毁 Canvas 的 peer，触发 §3 的保命解绑逻辑，嵌入的窗口于是 `SetParent(NULL)` 变回顶层并 `SW_SHOW` —— 按下老板键的结果是目标窗口**弹回桌面变得更显眼**。
+
+所以原生侧的顺序必须是：先 `ShowWindow(target, SW_HIDE)` 并置 `concealed` 标志，再收工具窗。`concealed` 会贯穿整条生命周期：
+
+- `releaseEmbedder()` 调 `detach(showAfterDetach = !concealed)`，解绑时不强制显示
+- `attachToCanvas()` 结束时调 `setVisible(!concealed)`，重新挂载后也保持隐藏
+
+恢复时先 `activate()` 工具窗，等重新挂载完成后再 `reveal()`。
+
+哪些工具窗在按下时是可见的会记进 `project` 的 `UserData`，恢复时只还原这一组，不会把你本来就没开的那个也弹出来。
 
 老板键的媒体暂停只覆盖**主文档**里的媒体元素。跨域 iframe 内部（典型如第三方播放器嵌入）受同源策略限制，`querySelectorAll` 够不到，声音不会停。要覆盖这种情况得走 §2.3 的 OSR 层，或者对每个 frame 单独注入——尚未处理。
 
