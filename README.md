@@ -225,11 +225,33 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 | 设置项 | 默认 | 说明 |
 |---|---|---|
 | Style mode | Palette quantization | 在量化与连续滤镜两种策略间切换 |
-| Palette source | Syntax highlighting colors | `Monochrome` 只取编辑器前景/背景做插值；`Syntax` 额外取 comment / keyword / string / number / function / class 的前景色，按亮度排序组成色带 |
+| Palette source | Editor monochrome | 见下方色板来源表 |
+| Custom colors | 空 | `custom` 来源专用，逗号分隔的 hex 列表，不足两个有效色时回落到 monochrome |
 | Palette steps | 6 | 最终允许出现的颜色数量，2~16 |
-| Pre-quantize saturation | 0 | 量化前的 `feColorMatrix saturate` 值。0 = 先完全去色，纯按亮度映射到色板；调高则保留部分原始色相，与色板混合 |
+| Range floor / ceiling | 0 / 70 | 只取色带的 `[floor, ceiling]` 区间做采样。**天花板是控制"最亮能有多亮"的旋钮**，默认 70 是为了让页面里不出现接近前景色的亮块 |
+| Pre-quantize saturation | 0 | 量化前的 `feColorMatrix saturate` 值。0 = 完全去色纯按亮度映射；调高则保留部分原始色相 |
+| Reverse mapping | 开 | 见下方"映射方向" |
 | Invert / Hue rotate / Saturate / Brightness / Contrast | 92 / 180 / 85 / 95 / 100 | 仅作用于连续滤镜模式 |
 | Restore original colors on images and video | 开 | 仅作用于连续滤镜模式，量化模式下无效（见 §2.2） |
+
+面板里有一条实时色板预览条，最左边那格就是"白色页面背景会变成什么颜色"。
+
+**色板来源：**
+
+| id | 取色 | 特征 |
+|---|---|---|
+| `mono` | 编辑器 `defaultBackground` → `defaultForeground` | 单色调，最不突兀，默认 |
+| `ide-ui` | `UIUtil.getPanelBackground()` / `JBColor.border()` / `UIUtil.getLabelForeground()` | 对齐工具窗边框而非编辑器，页面边界几乎完全消失，代价是对比度低 |
+| `syntax` | 额外取 comment / keyword / string / number / function / class 前景色 | 保留彩色层次，但显眼 |
+| `custom` | 用户填的 hex 列表 | 完全手动控制 |
+
+### 映射方向：必须反向
+
+`feFuncX type="discrete"` 的语义是「输入 0 取表首，输入 1 取表尾」。色带按亮度升序排列时，**白色页面背景（亮度≈1）会映射到色带末端，也就是最亮的前景色**——结果是整页变成浅灰，比原页面更扎眼，与目标完全相反。
+
+所以量化必须把色板**反向**后再写进 `tableValues`：亮度高的页面背景 → 色板最暗端（编辑器背景色），亮度低的正文文字 → 色板最亮端。`paletteReversed` 因此默认为开。
+
+`tools/preview_palette.py` 用 Python 复刻了同一套数学（`saturate 0` 去色 + `discrete` 取表），可以在不启动 IDE 的情况下渲染对照图，改算法时先用它验证比反复 `runIde` 快得多。
 
 ### 策略与色板的扩展点
 

@@ -1,6 +1,6 @@
 package com.lucashyuan.darculaveil.palette
 
-import com.intellij.openapi.editor.colors.EditorColorsScheme
+import com.lucashyuan.darculaveil.VeilSettings
 import java.awt.Color
 
 interface VeilPaletteProvider {
@@ -9,5 +9,5 @@ interface VeilPaletteProvider {
 
     val displayName: String
 
-    fun buildPalette(scheme: EditorColorsScheme, steps: Int): List<Color>
+    fun buildRamp(settings: VeilSettings.State): List<Color>
 }

@@ -18,7 +18,16 @@ object VeilColors {
         return Color(red.toInt().coerceIn(0, 255), green.toInt().coerceIn(0, 255), blue.toInt().coerceIn(0, 255))
     }
 
-    fun resample(ramp: List<Color>, steps: Int): List<Color> {
+    fun sampleAt(ramp: List<Color>, position: Double): Color {
+        val clamped = position.coerceIn(0.0, 1.0)
+        val scaled = clamped * (ramp.size - 1)
+        val lower = floor(scaled).toInt().coerceIn(0, ramp.size - 1)
+        val upper = ceil(scaled).toInt().coerceIn(0, ramp.size - 1)
+
+        return blend(ramp[lower], ramp[upper], scaled - lower)
+    }
+
+    fun resample(ramp: List<Color>, steps: Int, from: Double, to: Double): List<Color> {
         if (ramp.isEmpty()) {
             return emptyList()
         }
@@ -30,15 +39,20 @@ object VeilColors {
         val lastIndex = (steps - 1).coerceAtLeast(1)
 
         return (0 until steps).map { index ->
-            val position = index.toDouble() / lastIndex * (ramp.size - 1)
-            val lower = floor(position).toInt().coerceIn(0, ramp.size - 1)
-            val upper = ceil(position).toInt().coerceIn(0, ramp.size - 1)
-
-            blend(ramp[lower], ramp[upper], position - lower)
+            sampleAt(ramp, from + (to - from) * index / lastIndex)
         }
     }
 
+    fun sortByLuminance(colors: Collection<Color>): List<Color> = colors.distinct().sortedBy { luminance(it) }
+
     fun toChannelTable(palette: List<Color>, channel: (Color) -> Int): String {
         return palette.joinToString(" ") { String.format(Locale.ROOT, "%.4f", channel(it) / 255.0) }
+    }
+
+    fun parseHexList(value: String): List<Color> {
+        return value.split(',', ' ', '\n', '\t')
+            .map { it.trim().removePrefix("#") }
+            .filter { it.length == 6 && it.all { character -> character.isDigit() || character.lowercaseChar() in 'a'..'f' } }
+            .map { Color(it.toInt(16)) }
     }
 }

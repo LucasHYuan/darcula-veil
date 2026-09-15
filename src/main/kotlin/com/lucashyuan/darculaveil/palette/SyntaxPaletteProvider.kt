@@ -1,9 +1,11 @@
 package com.lucashyuan.darculaveil.palette
 
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
+import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.EditorColorsScheme
 import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.lucashyuan.darculaveil.VeilColors
+import com.lucashyuan.darculaveil.VeilSettings
 import java.awt.Color
 
 object SyntaxPaletteProvider : VeilPaletteProvider {
@@ -21,13 +23,15 @@ object SyntaxPaletteProvider : VeilPaletteProvider {
 
     override val id: String = ID
 
-    override val displayName: String = "Syntax highlighting colors"
+    override val displayName: String = "Editor syntax colors"
 
-    override fun buildPalette(scheme: EditorColorsScheme, steps: Int): List<Color> {
-        return VeilColors.resample(collectRamp(scheme), steps)
+    override fun buildRamp(settings: VeilSettings.State): List<Color> {
+        val scheme = EditorColorsManager.getInstance().globalScheme
+
+        return VeilColors.sortByLuminance(collect(scheme))
     }
 
-    private fun collectRamp(scheme: EditorColorsScheme): List<Color> {
+    private fun collect(scheme: EditorColorsScheme): List<Color> {
         val collected = mutableListOf(scheme.defaultBackground)
 
         SYNTAX_KEYS.forEach { key ->
@@ -40,6 +44,6 @@ object SyntaxPaletteProvider : VeilPaletteProvider {
 
         collected.add(scheme.defaultForeground)
 
-        return collected.distinct().sortedBy { VeilColors.luminance(it) }
+        return collected
     }
 }

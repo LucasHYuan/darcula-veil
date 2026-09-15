@@ -1,6 +1,5 @@
 package com.lucashyuan.darculaveil.style
 
-import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.lucashyuan.darculaveil.VeilColors
 import com.lucashyuan.darculaveil.VeilSettings
 import com.lucashyuan.darculaveil.palette.VeilPaletteProviders
@@ -18,15 +17,29 @@ object PaletteStyleStrategy : VeilStyleStrategy {
     override val displayName: String = "Palette quantization (IDE theme colors)"
 
     override fun buildDocument(settings: VeilSettings.State): VeilStyleDocument {
-        val scheme = EditorColorsManager.getInstance().globalScheme
-        val provider = VeilPaletteProviders.byId(settings.paletteSourceId)
-        val palette = provider.buildPalette(scheme, settings.paletteSteps)
+        val palette = buildPalette(settings)
 
         if (palette.isEmpty()) {
             return VeilStyleDocument("", "")
         }
 
         return VeilStyleDocument("html{filter:url(#$FILTER_ELEMENT_ID);}", buildSvgMarkup(palette, settings))
+    }
+
+    fun buildPalette(settings: VeilSettings.State): List<Color> {
+        val ramp = VeilPaletteProviders.byId(settings.paletteSourceId).buildRamp(settings)
+
+        if (ramp.isEmpty()) {
+            return emptyList()
+        }
+
+        val sampled = VeilColors.resample(ramp, settings.paletteSteps, settings.paletteFloorPercent / 100.0, settings.paletteCeilingPercent / 100.0)
+
+        if (settings.paletteReversed) {
+            return sampled.reversed()
+        }
+
+        return sampled
     }
 
     private fun buildSvgMarkup(palette: List<Color>, settings: VeilSettings.State): String {

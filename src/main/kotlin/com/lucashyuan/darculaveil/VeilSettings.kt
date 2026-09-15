@@ -6,7 +6,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.util.xmlb.XmlSerializerUtil
-import com.lucashyuan.darculaveil.palette.SyntaxPaletteProvider
+import com.lucashyuan.darculaveil.palette.MonochromePaletteProvider
 import com.lucashyuan.darculaveil.style.PaletteStyleStrategy
 
 @Service(Service.Level.APP)
@@ -18,9 +18,13 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         @JvmField var veilEnabled: Boolean = true
         @JvmField var styleModeId: String = PaletteStyleStrategy.ID
 
-        @JvmField var paletteSourceId: String = SyntaxPaletteProvider.ID
+        @JvmField var paletteSourceId: String = MonochromePaletteProvider.ID
         @JvmField var paletteSteps: Int = DEFAULT_PALETTE_STEPS
         @JvmField var paletteSourceSaturationPercent: Int = DEFAULT_PALETTE_SATURATION_PERCENT
+        @JvmField var paletteReversed: Boolean = true
+        @JvmField var paletteFloorPercent: Int = DEFAULT_PALETTE_FLOOR_PERCENT
+        @JvmField var paletteCeilingPercent: Int = DEFAULT_PALETTE_CEILING_PERCENT
+        @JvmField var customPaletteHex: String = ""
 
         @JvmField var invertPercent: Int = 92
         @JvmField var hueRotateDegrees: Int = 180
@@ -42,6 +46,8 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         const val DEFAULT_HOME_URL = "https://www.jetbrains.com/"
         const val DEFAULT_PALETTE_STEPS = 6
         const val DEFAULT_PALETTE_SATURATION_PERCENT = 0
+        const val DEFAULT_PALETTE_FLOOR_PERCENT = 0
+        const val DEFAULT_PALETTE_CEILING_PERCENT = 70
         const val MIN_PALETTE_STEPS = 2
         const val MAX_PALETTE_STEPS = 16
         const val MIN_PERCENT = 0
