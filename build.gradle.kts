@@ -1,7 +1,9 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.0.21"
-    id("org.jetbrains.intellij.platform") version "2.1.0"
+    id("org.jetbrains.kotlin.jvm") version "2.4.20"
+    id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
 group = providers.gradleProperty("pluginGroup").get()
@@ -16,13 +18,24 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
-        instrumentationTools()
+        local(providers.gradleProperty("platformLocalPath").get())
+        bundledPlugin("com.intellij.modules.jcef")
+        bundledModule("intellij.libraries.jcef")
+        bundledModule("intellij.platform.ui.jcef")
     }
 }
 
-kotlin {
-    jvmToolchain(providers.gradleProperty("javaVersion").get().toInt())
+val jvmTargetVersion = providers.gradleProperty("jvmTargetVersion").get()
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(jvmTargetVersion)
+    targetCompatibility = JavaVersion.toVersion(jvmTargetVersion)
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget = JvmTarget.fromTarget(jvmTargetVersion)
+    }
 }
 
 intellijPlatform {

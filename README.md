@@ -1,7 +1,8 @@
 # Darcula Veil
 
-> **状态：设计阶段，未实现。**
-> 本文档描述的是架构方案与技术调研结论，代码尚未落地。第一期（路线 A 的 JCEF 骨架）正在实现中，其余部分均为设计稿。
+> **状态：设计阶段。P1 已实现并构建通过，P2–P5 未实现。**
+> 本文档主体是架构方案与技术调研结论。除第 5 节标注为"已实现"的部分外，其余均为设计稿，未落地为代码。
+> P1 已通过 `./gradlew buildPlugin` 构建，但尚未在 IDE 中实际运行验证。
 
 在 JetBrains IDE（Rider / IntelliJ IDEA）的 Tool Window 中嵌入外部内容，并让其呈现风格与 IDE 当前主题保持一致。
 
@@ -178,7 +179,7 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 | 代码完成，未编译验证 |
+| **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 | 已实现，构建通过，未运行验证 |
 | **P2** | 主题化档位二：读 `EditorColorsManager` 色板，做 CSS 变量重映射；强度可调 UI | 设计中 |
 | **P3** | 字符网格渲染；同源内容先行，跨域场景评估 OSR | 设计中 |
 | **P4** | 路线 B 原型：reparent + 几何同步 + 焦点交接，限定无 anti-cheat 目标 | 设计中 |
@@ -186,12 +187,54 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 
 ---
 
-## 6. 环境要求
+## 6. 构建与运行
 
-- IntelliJ Platform 2023.3+（Rider / IDEA，需带 JCEF 的发行版）
-- JDK 17
-- Gradle IntelliJ Plugin
-- 路线 B 额外依赖 JNA（`net.java.dev.jna:jna-platform`）
+### 6.1 工具链
+
+| 组件 | 版本 | 说明 |
+|---|---|---|
+| 目标平台 | 本地 Rider `RD-262.8665.400`（2026.2） | 走 `local()`，不从网络拉 IDE |
+| JDK | 随 Rider 分发的 JBR 25 | 平台 2026.2 要求 Java 25，低于此 `verifyPluginProjectConfiguration` 会报 sourceCompatibility 过低 |
+| Gradle | 9.7.1 | 8.x 不支持 Java 25 |
+| Kotlin | 2.4.20 | |
+| IntelliJ Platform Gradle Plugin | 2.19.0 | |
+
+平台路径与版本号全部收在 `gradle.properties`，换机器只改 `platformLocalPath` 和 `pluginSinceBuild`。
+
+### 6.2 命令
+
+```bash
+export JAVA_HOME="/c/Program Files/JetBrains/JetBrains Rider 2024.3.6/jbr"
+
+./gradlew buildPlugin        # 产出 build/distributions/darcula-veil-0.1.0.zip
+./gradlew runIde             # 起一个带本插件的 Rider 沙箱实例
+./gradlew verifyPluginProjectConfiguration verifyPluginStructure
+```
+
+JBR 是纯 runtime，不带 `javac` / `jar`。当前工程没有 `.java` 源文件（`compileJava` 为 NO-SOURCE），所以不受影响；将来若加 Java 源码需要换一个完整 JDK 25。
+
+### 6.3 JCEF 的依赖声明
+
+平台 262 已经把 JCEF 从核心 lib 拆成 bundled plugin，类分布在两个 content module 里：
+
+| 包 | 所在 jar |
+|---|---|
+| `org.cef.*` | `plugins/jcef-plugin/lib/modules/intellij.libraries.jcef.jar` |
+| `com.intellij.ui.jcef.*` | `plugins/jcef-plugin/lib/modules/intellij.platform.ui.jcef.jar` |
+
+因此 `build.gradle.kts` 里必须显式声明，只写 `local()` 会得到 `Unresolved reference 'jcef'`：
+
+```kotlin
+bundledPlugin("com.intellij.modules.jcef")
+bundledModule("intellij.libraries.jcef")
+bundledModule("intellij.platform.ui.jcef")
+```
+
+同时 `plugin.xml` 需要 `<depends>com.intellij.modules.jcef</depends>`，否则在不带 JCEF 的发行版上插件仍会加载并在运行时炸。
+
+### 6.4 路线 B 的额外依赖
+
+JNA（`net.java.dev.jna:jna-platform`），P4 阶段才引入，当前未加。
 
 ---
 
