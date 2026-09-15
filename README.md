@@ -272,6 +272,19 @@ private inner class HostCanvas : Canvas() {
 | 工具窗收起后窗口弹出去、再打开回不来 | 收起会销毁 Canvas peer，`removeNotify` 正确解绑；但重新展开时 `addNotify` 里立刻取 HWND，peer 尚未完全就绪，取不到就**静默放弃且无人重试** | 改为 `invokeLater` 延迟挂载，并让 watchdog 定时器在 `target != null && embedder == null` 时持续重试，`componentShown` 也触发一次 |
 | 网页偶发整页消失 | 注入顺序是先写 `filter: url(#id)` 再插 SVG。两者之间存在窗口期，且 SVG 被页面清掉后同样会命中——引用不存在的 filter 时 Chromium 直接不渲染该元素 | 调换顺序（先 SVG 后 style），并在写 CSS 前校验 filter 确实在文档里，不在就写空 CSS。失败模式从"整页不可见"降级为"没有主题化" |
 
+### 嵌入后窗口尺寸为 0x0
+
+`attach()` 末尾会 `syncGeometry()`，它用 `GetClientRect(host)` 取宿主尺寸。但把挂载改成 `invokeLater` 延迟执行之后出现了时序空档：**AWT 组件已经有尺寸了，底层 peer 的 HWND 还没被 resize**，`GetClientRect` 返回空矩形，于是目标窗口被 `SetWindowPos` 成 0x0。
+
+之后 AWT 组件尺寸不再变化，`componentResized` 不会触发，没有任何人纠正这个值——窗口就永久停在 0x0，表现为"选完窗口什么都没有"。用 `canvas.width` 做守卫无效，那是 AWT 逻辑尺寸，和原生 HWND 的实际尺寸是两回事。
+
+两处修：
+
+- `syncGeometry()` 拿到 `0` 宽高直接跳过，不再把窗口设成 0x0；并且先比对当前矩形，尺寸没变就不调 `SetWindowPos`
+- watchdog 每秒除了检查存活，**也重新对一次几何**。1 Hz 的 `SetWindowPos` 开销可以忽略，换来的是任何一次错过的 resize 都能自愈
+
+诊断这类问题不能只看 `IsWindowVisible`——它对 0 尺寸窗口照样返回 `true`。必须沿 `GetParent` 链逐级打印 `GetWindowRect`，`tools/probe_window_chain.ps1` 就是干这个的。
+
 ### 使用限制
 
 - **目标必须是窗口化或无边框窗口化。** 独占全屏的 D3D 窗口 reparent 之后行为未定义，先在游戏里切到 Borderless。

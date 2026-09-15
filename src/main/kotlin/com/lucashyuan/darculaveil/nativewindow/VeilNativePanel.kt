@@ -50,6 +50,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
     fun embed(info: VeilWindowInfo) {
         releaseEmbedder()
+        concealed = false
         target = info
         lastTarget = info
         showCanvas()
@@ -103,6 +104,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
             }
 
             override fun componentShown(event: ComponentEvent) {
+                reveal()
                 scheduleAttach()
             }
         })
@@ -123,6 +125,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         }
 
         if (current.isAlive()) {
+            current.syncGeometry()
             return
         }
 

@@ -65,6 +65,16 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         val width = clientRect.right - clientRect.left
         val height = clientRect.bottom - clientRect.top
 
+        if (width <= 0 || height <= 0) {
+            return
+        }
+
+        val currentBounds = RECT()
+
+        if (user32.GetWindowRect(target, currentBounds) && currentBounds.right - currentBounds.left == width && currentBounds.bottom - currentBounds.top == height) {
+            return
+        }
+
         user32.SetWindowPos(target, null, 0, 0, width, height, VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
     }
 
