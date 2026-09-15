@@ -204,14 +204,21 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 ### 6.2 命令
 
 ```bash
-export JAVA_HOME="/c/Program Files/JetBrains/JetBrains Rider 2024.3.6/jbr"
-
 ./gradlew buildPlugin        # 产出 build/distributions/darcula-veil-0.1.0.zip
 ./gradlew runIde             # 起一个带本插件的 Rider 沙箱实例
 ./gradlew verifyPluginProjectConfiguration verifyPluginStructure
 ```
 
-JBR 是纯 runtime，不带 `javac` / `jar`。当前工程没有 `.java` 源文件（`compileJava` 为 NO-SOURCE），所以不受影响；将来若加 Java 源码需要换一个完整 JDK 25。
+本机已把 `JAVA_HOME` 设为用户级环境变量，指向 Rider 自带的 JBR：
+
+```
+JAVA_HOME = C:\Program Files\JetBrains\JetBrains Rider 2024.3.6\jbr
+```
+
+两个需要留意的点：
+
+- **JBR 是纯 runtime，不带 `javac` / `jar`。** 当前工程没有 `.java` 源文件（`compileJava` 为 NO-SOURCE），所以不受影响；将来若加 Java 源码，或有别的工具靠 `JAVA_HOME` 找编译器，需要换一个完整 JDK 25。
+- **路径里带 Rider 的安装目录名。** Rider 升级换目录后 `JAVA_HOME` 会失效，需要重新指。注意这个目录名不等于实际版本号——当前目录叫 `2024.3.6`，`build.txt` 里其实是 `RD-262.8665.400`。
 
 ### 6.3 JCEF 的依赖声明
 
