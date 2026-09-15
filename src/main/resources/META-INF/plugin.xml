@@ -1,0 +1,29 @@
+<idea-plugin>
+    <id>com.lucashyuan.darculaveil</id>
+    <name>Darcula Veil</name>
+    <vendor email="lucas.h.yuan@gmail.com" url="https://github.com/LucasHYuan/darcula-veil">LucasHYuan</vendor>
+
+    <description><![CDATA[
+        Embeds external web content in a JetBrains IDE tool window and re-themes it to match the
+        current IDE color scheme. Phase 1 ships a JCEF-backed tool window with a runtime-toggleable
+        CSS filter layer. See the project README for the full architecture and roadmap.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Darcula Veil"
+                    anchor="right"
+                    factoryClass="com.lucashyuan.darculaveil.VeilToolWindowFactory"/>
+    </extensions>
+
+    <actions>
+        <action id="DarculaVeil.Toggle"
+                class="com.lucashyuan.darculaveil.action.ToggleVeilAction"
+                text="Toggle Darcula Veil"
+                description="Enable or disable the theme filter on the embedded page">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift V"/>
+        </action>
+    </actions>
+</idea-plugin>

@@ -178,7 +178,7 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 | 实现中 |
+| **P1** | 路线 A 骨架：`ToolWindowFactory` + `JBCefBrowser` + 开关 Action + CSS filter 注入 | 代码完成，未编译验证 |
 | **P2** | 主题化档位二：读 `EditorColorsManager` 色板，做 CSS 变量重映射；强度可调 UI | 设计中 |
 | **P3** | 字符网格渲染；同源内容先行，跨域场景评估 OSR | 设计中 |
 | **P4** | 路线 B 原型：reparent + 几何同步 + 焦点交接，限定无 anti-cheat 目标 | 设计中 |
