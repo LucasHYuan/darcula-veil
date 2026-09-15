@@ -42,7 +42,9 @@ ToolWindowFactory
 
 - `JBCefApp.isSupported()` 必须先判，运行在不带 JCEF 的发行版上会直接抛异常。
 - `JBCefBrowser` 必须显式 `Disposer.register(toolWindowDisposable, browser)`，否则 IDE 关闭时 CEF 子进程残留。
-- 页面加载完成事件走 `CefLoadHandler.onLoadEnd`，注入必须挂在这个回调上——过早 `executeJavaScript` 会打进空文档。
+- **弹窗必须拦截。** 默认情况下 `target="_blank"` 和 `window.open()` 会让 CEF 尝试开一个新的 browser，在 tool window 里表现为弹出一个无法正常显示的窗口。修法是 `CefLifeSpanHandler.onBeforePopup` 返回 `true` 取消弹窗，并把 `targetUrl` 用 `loadURL` 加载回当前 browser。回调在 CEF 线程上，`loadUrl` 要 `invokeLater` 回 EDT。
+- **只挂 `onLoadEnd` 会闪一下原始页面。** `onLoadEnd` 在文档加载完成后才触发，此时页面已经按原样绘制过一帧，视觉上就是"先正常渲染再变暗"。必须同时挂 `onLoadStart`：该回调在导航提交、文档开始解析时触发，此时 `document.documentElement` 已存在但内容尚未绘制，注入的样式能赶在首帧之前生效。`onLoadEnd` 保留作为兜底（SPA 路由、延迟注入的样式表）。
+- **注入的元素会被页面弄丢。** SPA 替换 `body`、或页面自己清理 DOM，都会带走注入的 `<style>` 和承载 SVG filter 的 div。丢了 SVG 尤其危险：CSS `filter: url(#id)` 指向不存在的 filter 时，Chromium 会**直接不渲染该元素**，整页消失。因此注入脚本额外装了一个 `MutationObserver`，发现元素丢失就重新注入，并用 200ms 的调度标志节流，避免在高频 DOM 变动的页面上空转。
 
 ### 2.2 主题化的三个档位
 
@@ -216,6 +218,8 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 | `DarculaVeil.Toggle` | `Ctrl+Alt+Shift+V` | 开关主题化滤镜，页面不重新加载 |
 | `DarculaVeil.BossKey` | **未绑定**，自行在 `Settings → Keymap` 挂 | 可见时：暂停所有 `<video>` / `<audio>` 后收起 tool window；已隐藏时：重新唤出。恢复不自动续播 |
 
+工具窗标题栏还有四个只在面板内生效的按钮：后退 / 前进 / 刷新 / 改地址。后退前进按 `CefBrowser.canGoBack()` / `canGoForward()` 自动置灰。
+
 老板键的媒体暂停只覆盖**主文档**里的媒体元素。跨域 iframe 内部（典型如第三方播放器嵌入）受同源策略限制，`querySelectorAll` 够不到，声音不会停。要覆盖这种情况得走 §2.3 的 OSR 层，或者对每个 frame 单独注入——尚未处理。
 
 ### P2 的设置面板
@@ -300,7 +304,23 @@ JAVA_HOME = C:\Program Files\JetBrains\JetBrains Rider 2024.3.6\jbr
 - **JBR 是纯 runtime，不带 `javac` / `jar`。** 当前工程没有 `.java` 源文件（`compileJava` 为 NO-SOURCE），所以不受影响；将来若加 Java 源码，或有别的工具靠 `JAVA_HOME` 找编译器，需要换一个完整 JDK 25。
 - **目录名不等于版本号。** 安装目录叫 `JetBrains Rider 2024.3.6`，但 `build.txt` 是 `RD-262.8665.400`、`rider64.exe` 的 ProductVersion 是 `262.8665.400.0-RD`，实际是 2026.2。原因是 JetBrains 独立安装包走原地升级，目录名保留首次安装时的版本。**因此这个路径是稳定的**，日常升级不会失效；只有卸载重装或迁移到 Toolbox 管理时，才需要同步更新 `JAVA_HOME` 和 `platformLocalPath`。
 
-### 6.3 JCEF 的依赖声明
+### 6.3 版本与热重载
+
+版本号写在 `gradle.properties` 的 `pluginVersion`，`patchPluginXml` 会把它写进 `plugin.xml`，产物文件名也跟着变。
+
+本插件**支持动态加载，更新不需要重启 IDE**。依据是用到的两个扩展点在平台里都声明为 `dynamic="true"`：
+
+```xml
+<extensionPoint name="toolWindow" beanClass="...ToolWindowEP" dynamic="true"/>
+<extensionPoint name="applicationConfigurable" dynamic="true" beanClass="...ConfigurableEP"/>
+```
+
+工程里没有 `<application-components>`，actions 也是动态注册，因此整个插件是 unload-safe 的。
+
+- **沙箱迭代**：`runIde` 的 `autoReload` 已显式打开。保持 `runIde` 运行，另开一个终端执行 `gradlew buildPlugin`，IDE 会自动卸载旧版本装上新的，不用重启也不用重新安装。
+- **日常 IDE**：`Settings → Plugins → Install Plugin from Disk` 装新版 zip，IDE 会直接完成替换。如果它仍然要求重启，去 `idea.log` 搜 `not unload-safe`，日志会说明是哪个原因导致无法动态卸载。
+
+### 6.4 JCEF 的依赖声明
 
 平台 262 已经把 JCEF 从核心 lib 拆成 bundled plugin，类分布在两个 content module 里：
 
@@ -319,7 +339,7 @@ bundledModule("intellij.platform.ui.jcef")
 
 同时 `plugin.xml` 需要 `<depends>com.intellij.modules.jcef</depends>`，否则在不带 JCEF 的发行版上插件仍会加载并在运行时炸。
 
-### 6.4 路线 B 的额外依赖
+### 6.5 路线 B 的额外依赖
 
 JNA（`net.java.dev.jna:jna-platform`），P4 阶段才引入，当前未加。
 

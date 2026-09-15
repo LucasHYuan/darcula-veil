@@ -13,7 +13,9 @@ import com.intellij.util.ui.UIUtil
 import com.lucashyuan.darculaveil.style.VeilStyleStrategies
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
+import org.cef.handler.CefLifeSpanHandlerAdapter
 import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.network.CefRequest
 import java.awt.BorderLayout
 import javax.swing.JPanel
 
@@ -26,6 +28,7 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
         background = UIUtil.getPanelBackground()
         add(browser.component, BorderLayout.CENTER)
         installLoadHandler()
+        installLifeSpanHandler()
         subscribeToStateChanges()
     }
 
@@ -36,6 +39,18 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
     fun reload() {
         browser.cefBrowser.reload()
     }
+
+    fun goBack() {
+        browser.cefBrowser.goBack()
+    }
+
+    fun goForward() {
+        browser.cefBrowser.goForward()
+    }
+
+    fun canGoBack(): Boolean = browser.cefBrowser.canGoBack()
+
+    fun canGoForward(): Boolean = browser.cefBrowser.canGoForward()
 
     fun pauseMedia() {
         executeScript(VeilMediaScript.buildPauseScript())
@@ -62,12 +77,32 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
 
     private fun installLoadHandler() {
         val handler = object : CefLoadHandlerAdapter() {
+            override fun onLoadStart(cefBrowser: CefBrowser, frame: CefFrame, transitionType: CefRequest.TransitionType) {
+                refreshVeil()
+            }
+
             override fun onLoadEnd(cefBrowser: CefBrowser, frame: CefFrame, httpStatusCode: Int) {
                 refreshVeil()
             }
         }
 
         browser.jbCefClient.addLoadHandler(handler, browser.cefBrowser)
+    }
+
+    private fun installLifeSpanHandler() {
+        val handler = object : CefLifeSpanHandlerAdapter() {
+            override fun onBeforePopup(cefBrowser: CefBrowser, frame: CefFrame, targetUrl: String?, targetFrameName: String?): Boolean {
+                if (targetUrl.isNullOrBlank()) {
+                    return true
+                }
+
+                ApplicationManager.getApplication().invokeLater { loadUrl(targetUrl) }
+
+                return true
+            }
+        }
+
+        browser.jbCefClient.addLifeSpanHandler(handler, browser.cefBrowser)
     }
 
     private fun subscribeToStateChanges() {

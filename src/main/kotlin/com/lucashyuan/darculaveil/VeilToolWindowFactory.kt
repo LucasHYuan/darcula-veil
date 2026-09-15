@@ -10,6 +10,8 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.jcef.JBCefApp
+import com.lucashyuan.darculaveil.action.GoBackVeilPageAction
+import com.lucashyuan.darculaveil.action.GoForwardVeilPageAction
 import com.lucashyuan.darculaveil.action.ReloadVeilPageAction
 import com.lucashyuan.darculaveil.action.SetVeilUrlAction
 import javax.swing.JComponent
@@ -38,6 +40,8 @@ class VeilToolWindowFactory : ToolWindowFactory, DumbAware {
             actions.add(toggle)
         }
 
+        actions.add(GoBackVeilPageAction(panel))
+        actions.add(GoForwardVeilPageAction(panel))
         actions.add(ReloadVeilPageAction(panel))
         actions.add(SetVeilUrlAction(panel))
 
