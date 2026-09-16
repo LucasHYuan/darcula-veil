@@ -29,6 +29,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
     private var target: VeilWindowInfo? = null
     private var lastTarget: VeilWindowInfo? = null
     private var concealed = false
+    private var awaitingGeometry = false
 
     init {
         canvas.background = UIUtil.getPanelBackground()
@@ -74,16 +75,18 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
     fun conceal() {
         concealed = true
+        awaitingGeometry = false
         embedder?.setVisible(false)
     }
 
     fun reveal() {
         concealed = false
-        embedder?.setVisible(true)
+        awaitingGeometry = true
+        revealWhenReady()
     }
 
     fun syncGeometry() {
-        embedder?.syncGeometry()
+        revealWhenReady()
     }
 
     fun applyOpacity() {
@@ -100,7 +103,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
     private fun installCanvasListeners() {
         canvas.addComponentListener(object : ComponentAdapter() {
             override fun componentResized(event: ComponentEvent) {
-                syncGeometry()
+                revealWhenReady()
             }
 
             override fun componentShown(event: ComponentEvent) {
@@ -125,7 +128,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         }
 
         if (current.isAlive()) {
-            current.syncGeometry()
+            revealWhenReady()
             return
         }
 
@@ -159,9 +162,25 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         val created = VeilWindowEmbedder(info.handle, host)
         created.attach()
         created.applyOpacity(settings.nativeLayeredEnabled, settings.nativeOpacityPercent)
-        created.setVisible(!concealed)
         embedder = created
+        awaitingGeometry = true
         LOG.info("Embedded window ${info.title}, concealed=$concealed")
+        revealWhenReady()
+    }
+
+    private fun revealWhenReady() {
+        val current = embedder ?: return
+
+        if (!current.syncGeometry()) {
+            return
+        }
+
+        if (concealed || !awaitingGeometry) {
+            return
+        }
+
+        current.setVisible(true)
+        awaitingGeometry = false
     }
 
     private fun releaseEmbedder() {

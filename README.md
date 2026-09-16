@@ -285,6 +285,39 @@ private inner class HostCanvas : Canvas() {
 
 诊断这类问题不能只看 `IsWindowVisible`——它对 0 尺寸窗口照样返回 `true`。必须沿 `GetParent` 链逐级打印 `GetWindowRect`，`tools/probe_window_chain.ps1` 就是干这个的。
 
+### 恢复时的闪烁与"弹出去"
+
+老板键恢复时会看到一下闪烁，原因是**显示早于几何就位**：`attach()` 之后窗口还保持着 detach 期间被还原的原始尺寸（比如 800x600），要等 `syncGeometry()` 才会缩到面板大小。如果那一刻 peer 尚未 resize，`syncGeometry()` 会跳过，窗口就以错误尺寸显示到下一次 watchdog tick 为止——视觉上就是闪一下再跳到正确大小。
+
+修法是把"显示"从 `attach()` 里拆出来，改成**几何确认就位之后才显示**：
+
+```kotlin
+private fun revealWhenReady() {
+    val current = embedder ?: return
+    if (!current.syncGeometry()) { return }          // 几何没就位就不显示
+    if (concealed || !awaitingGeometry) { return }
+    current.setVisible(true)
+    awaitingGeometry = false
+}
+```
+
+`syncGeometry()` 因此改为返回 `Boolean`。`attach` / `componentResized` / watchdog / 手动 Resync 四个入口全部走这一个函数，谁先满足条件谁负责显示。
+
+另外，detach 时若不需要显示（老板键隐藏路径），**还原 style 必须把 `WS_VISIBLE` 掩掉**：
+
+```kotlin
+private fun restoredStyle(showAfterDetach: Boolean): Int {
+    if (showAfterDetach) { return originalStyle }
+    return originalStyle and VeilUser32.WS_VISIBLE.inv()
+}
+```
+
+原始 style 里通常带着 `WS_VISIBLE`，直接写回去会让样式位与实际可见性不一致，紧接着的 `SetWindowPos(SWP_FRAMECHANGED)` 有机会把它真的显示出来——表现就是按下老板键后目标窗口在桌面上闪出来。
+
+### 原生窗口为什么没有主题化
+
+只有整窗 alpha（默认关闭），没有色板量化。这不是未实现，是 §3.3 那条结构性矛盾的直接后果：reparent 保住了输入，代价是像素完全由对方进程的 D3D / GDI 管线产出，我们没有任何插入点。想要真正的 shader 后处理必须换 Windows Graphics Capture，而那会让输入链彻底断掉。
+
 ### 使用限制
 
 - **目标必须是窗口化或无边框窗口化。** 独占全屏的 D3D 窗口 reparent 之后行为未定义，先在游戏里切到 Borderless。

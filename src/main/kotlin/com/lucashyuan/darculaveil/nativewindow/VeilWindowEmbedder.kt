@@ -42,7 +42,7 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         }
 
         user32.SetParent(target, originalParent)
-        user32.SetWindowLong(target, VeilUser32.GWL_STYLE, originalStyle)
+        user32.SetWindowLong(target, VeilUser32.GWL_STYLE, restoredStyle(showAfterDetach))
         user32.SetWindowLong(target, VeilUser32.GWL_EXSTYLE, originalExStyle)
         restoreBounds()
 
@@ -51,31 +51,31 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         }
     }
 
-    fun syncGeometry() {
+    fun syncGeometry(): Boolean {
         if (detached || !isAlive()) {
-            return
+            return false
         }
 
         val clientRect = RECT()
 
         if (!user32.GetClientRect(host, clientRect)) {
-            return
+            return false
         }
 
         val width = clientRect.right - clientRect.left
         val height = clientRect.bottom - clientRect.top
 
         if (width <= 0 || height <= 0) {
-            return
+            return false
         }
 
         val currentBounds = RECT()
 
         if (user32.GetWindowRect(target, currentBounds) && currentBounds.right - currentBounds.left == width && currentBounds.bottom - currentBounds.top == height) {
-            return
+            return true
         }
 
-        user32.SetWindowPos(target, null, 0, 0, width, height, VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+        return user32.SetWindowPos(target, null, 0, 0, width, height, VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
     }
 
     fun applyOpacity(enabled: Boolean, opacityPercent: Int) {
@@ -137,6 +137,14 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         val height = bounds.bottom - bounds.top
 
         user32.SetWindowPos(target, null, bounds.left, bounds.top, width, height, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+    }
+
+    private fun restoredStyle(showAfterDetach: Boolean): Int {
+        if (showAfterDetach) {
+            return originalStyle
+        }
+
+        return originalStyle and VeilUser32.WS_VISIBLE.inv()
     }
 
     private fun buildChildStyle(): Int {

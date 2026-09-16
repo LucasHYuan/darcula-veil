@@ -50,6 +50,7 @@ interface VeilUser32 : StdCallLibrary {
         const val GWL_EXSTYLE = -20
 
         const val WS_CHILD = 0x40000000
+        const val WS_VISIBLE = 0x10000000
         const val WS_CAPTION = 0x00C00000
         const val WS_THICKFRAME = 0x00040000
         const val WS_MINIMIZEBOX = 0x00020000
