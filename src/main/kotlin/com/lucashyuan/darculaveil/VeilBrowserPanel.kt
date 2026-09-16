@@ -52,6 +52,10 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
 
     fun canGoForward(): Boolean = browser.cefBrowser.canGoForward()
 
+    fun showMediaReport() {
+        browser.loadHTML(VeilMediaReport.buildHtml())
+    }
+
     fun pauseMedia() {
         executeScript(VeilMediaScript.buildPauseScript())
     }

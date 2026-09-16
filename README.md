@@ -126,7 +126,19 @@ CefRenderHandler.onPaint(browser, type, dirtyRects, buffer, width, height)
 - 帧率和延迟取决于 `onPaint` 回调频率，需要自己做节流。
 - 这条路等于放弃了 IntelliJ 封装好的 JBCefBrowser，直接对 JCEF 底层 API 编程，维护成本显著上升。
 
-**DRM：JCEF 不带 Widevine CDM。** 受 DRM 保护的流媒体在这条路线上放不了，这是发行版层面的限制，不是配置问题。本项目不尝试绕过，相关内容直接判为不支持。
+### 2.4 媒体播放的两层限制
+
+**DRM：JCEF 不带 Widevine CDM。** 本机核对过 `plugins/jcef-plugin/jcef/` 下没有任何 widevine 组件。受 DRM 保护的流媒体在这条路线上放不了，这是发行版层面的限制，不是配置问题。本项目不尝试绕过，相关内容直接判为不支持。
+
+**专有编解码器：H.264 / AAC / MP3 取决于 JCEF 的编译选项。** Chromium 可以带也可以不带专有编解码器，这在编译期就定了，任何命令行开关都改不了。网络上绝大多数 MP4 视频是 H.264 + AAC，所以一旦缺失，表现就是"H5 视频完全播不了"，而 WebM（VP8/VP9/Opus）仍然正常。
+
+这件事不能靠猜，工具窗标题栏的 **Media Support Report** 按钮会用 `loadHTML` 打开一个本地探测页，现场跑 `canPlayType` 和 `MediaSource.isTypeSupported`，逐项列出支持情况，并打印 `userAgent` 与当前 JCEF 版本背景。本机 JCEF 为：
+
+```
+JCEF_VERSION_DETAILED=144.0.15-g72717cf-chromium-144.0.7559.172-api-1.21-262-b37
+```
+
+如果报告显示 H.264 一栏为 `no`，那就是编译期缺失，**插件侧无解**——只能改用 WebM 源，或走 §2.3 的 OSR 方案把解码交给外部播放器，或干脆用路线 B 直接嵌一个系统播放器窗口。
 
 ---
 

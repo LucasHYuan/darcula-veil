@@ -11,6 +11,7 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.jcef.JBCefApp
 import com.lucashyuan.darculaveil.action.GoBackVeilPageAction
+import com.lucashyuan.darculaveil.action.MediaSupportReportAction
 import com.lucashyuan.darculaveil.action.GoForwardVeilPageAction
 import com.lucashyuan.darculaveil.action.ReloadVeilPageAction
 import com.lucashyuan.darculaveil.action.SetVeilUrlAction
@@ -44,6 +45,7 @@ class VeilToolWindowFactory : ToolWindowFactory, DumbAware {
         actions.add(GoForwardVeilPageAction(panel))
         actions.add(ReloadVeilPageAction(panel))
         actions.add(SetVeilUrlAction(panel))
+        actions.add(MediaSupportReportAction(panel))
 
         return actions
     }
