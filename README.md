@@ -209,7 +209,7 @@ Z-order 上 overlay 必须始终在目标窗口之上，目标窗口每次自己
 | **P2** | 主题化档位二：SVG 色板量化 + 双色板来源 + 设置面板 | 已实现，构建通过，未运行验证 |
 | **P3** | 字符网格渲染；同源内容先行，跨域场景评估 OSR | 设计中 |
 | **P4** | 路线 B：reparent + 几何同步 + 焦点交接 + peer 生命周期 | 已实现，构建通过，未运行验证 |
-| **P5** | 合成层。**未按原设计实现**，改用 `WS_EX_LAYERED` 整窗 alpha，见下 | 部分实现 |
+| **P5** | overlay 合成层：layered 穿透子窗 + UpdateLayeredWindow 逐像素 tint/渐晕/扫描线 | 已实现，构建通过，未运行验证 |
 
 ### P4：原生窗口嵌入
 
@@ -255,13 +255,38 @@ private inner class HostCanvas : Canvas() {
 
 同样的道理：**IDE 崩溃或被强杀时来不及解绑，嵌入的窗口会跟着消失。** 这个没有办法兜底，是路线 B 的固有代价。
 
-### P5 的实现与原设计的偏离
+### P5：overlay 合成层
 
-原设计是再建一个 `WS_EX_LAYERED | WS_EX_TRANSPARENT` 的 overlay 子窗口做合成层。实际实现改成了更简单的方案：直接给目标窗口加 `WS_EX_LAYERED` 并用 `SetLayeredWindowAttributes` 调整整窗 alpha，让它与 Canvas 背景（IDE 面板色）混合。
+在目标窗口之上叠一个自建的子窗口作为主题化合成层：
 
-代价是效果更弱——只能整体调透明度，做不了渐晕、扫描线这类叠加图案。收益是省掉了自建窗口类、注册 WNDCLASS、`UpdateLayeredWindow` 逐像素合成这一整套。
+```
+Canvas HWND
+  ├─ 目标窗口（reparent 进来，WS_CHILD）
+  └─ overlay（WS_CHILD | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE）
+```
 
-**默认关闭。** 给一个外部进程的窗口加 `WS_EX_LAYERED` 会强制走窗口重定向，可能拖慢甚至破坏 D3D 渲染。值不值得自己试。
+`WS_EX_TRANSPARENT` 让命中测试穿透，鼠标事件全部落到下层目标窗口，输入链完全不受影响。
+
+**不需要注册窗口类。** 这是当初被高估的那部分工作量：用 `UpdateLayeredWindow` 时窗口内容完全由我们提供的 ARGB 位图决定，根本不走 `WM_PAINT`，所以可以直接拿系统自带的 `"STATIC"` 类建窗口，省掉 `RegisterClassEx` 和 WNDPROC 回调。
+
+合成链路：
+
+```
+VeilOverlayRenderer 生成预乘 ARGB IntArray
+  → CreateDIBSection 拿到 top-down 32 位 DIB 的裸指针（biHeight 传负值）
+  → Pointer.write() 直接灌像素
+  → UpdateLayeredWindow(..., AC_SRC_ALPHA, ULW_ALPHA)
+```
+
+**必须是预乘 alpha**，`AC_SRC_ALPHA` 要求如此；直接写非预乘值会得到发亮的错误结果。位图按 `signature` 缓存，只有尺寸或参数变化才重新渲染，几何同步时不会每秒重算百万像素。
+
+Z 序上 overlay 必须始终在目标之上，目标窗口自己调 `SetWindowPos` 可能打乱顺序，因此每次几何同步都重新置顶一次。
+
+可调项：tint 强度（混向 IDE 面板色）、渐晕强度、扫描线间距与强度。
+
+**这仍然是叠加型效果。** 拿不到下层像素就做不了依赖源像素的运算——对比度调整、色彩重映射、网页那套色板量化，在这条路线上都不可能。想要真正的 shader 后处理只能换 Windows Graphics Capture，代价是输入链彻底断掉（见 §3.3）。
+
+另外保留了一个独立开关：给目标窗口本身加 `WS_EX_LAYERED` 调整体透明度。默认关闭，因为它会强制窗口重定向，可能拖慢或破坏 D3D 渲染。
 
 ### 实测暴露的四个缺陷
 

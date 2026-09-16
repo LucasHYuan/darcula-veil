@@ -1,8 +1,10 @@
 package com.lucashyuan.darculaveil.nativewindow
 
+import com.lucashyuan.darculaveil.VeilSettings
 import com.sun.jna.platform.win32.Kernel32
 import com.sun.jna.platform.win32.WinDef.HWND
 import com.sun.jna.platform.win32.WinDef.RECT
+import java.awt.Color
 
 class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
 
@@ -13,6 +15,8 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
     private val originalBounds = readWindowBounds()
 
     private var detached = false
+    private var overlay: VeilOverlayWindow? = null
+    private var overlayActive = false
 
     fun attach() {
         user32.SetWindowLong(target, VeilUser32.GWL_STYLE, buildChildStyle())
@@ -28,6 +32,36 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         }
 
         user32.ShowWindow(target, if (visible) VeilUser32.SW_SHOW else VeilUser32.SW_HIDE)
+        overlay?.setVisible(visible && overlayActive)
+    }
+
+    fun refreshOverlay(tint: Color, settings: VeilSettings.State) {
+        if (detached || !isAlive()) {
+            return
+        }
+
+        overlayActive = settings.overlayEnabled
+
+        if (!overlayActive) {
+            overlay?.setVisible(false)
+            return
+        }
+
+        val clientRect = RECT()
+
+        if (!user32.GetClientRect(host, clientRect)) {
+            return
+        }
+
+        val width = clientRect.right - clientRect.left
+        val height = clientRect.bottom - clientRect.top
+
+        if (width <= 0 || height <= 0) {
+            return
+        }
+
+        val current = overlay ?: VeilOverlayWindow(host).also { overlay = it }
+        current.update(width, height, tint, settings)
     }
 
     fun detach(showAfterDetach: Boolean) {
@@ -35,6 +69,8 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
             return
         }
 
+        overlay?.destroy()
+        overlay = null
         detached = true
 
         if (!isAlive()) {

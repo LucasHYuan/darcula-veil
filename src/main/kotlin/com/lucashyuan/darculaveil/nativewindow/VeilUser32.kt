@@ -2,6 +2,7 @@ package com.lucashyuan.darculaveil.nativewindow
 
 import com.sun.jna.Native
 import com.sun.jna.Pointer
+import com.sun.jna.platform.win32.WinDef.HDC
 import com.sun.jna.platform.win32.WinDef.HWND
 import com.sun.jna.platform.win32.WinDef.RECT
 import com.sun.jna.platform.win32.WinUser
@@ -43,6 +44,16 @@ interface VeilUser32 : StdCallLibrary {
 
     fun SetLayeredWindowAttributes(hWnd: HWND, colorKey: Int, alpha: Byte, flags: Int): Boolean
 
+    fun CreateWindowEx(exStyle: Int, className: String, windowName: String?, style: Int, x: Int, y: Int, width: Int, height: Int, parent: HWND?, menu: Pointer?, instance: Pointer?, param: Pointer?): HWND?
+
+    fun DestroyWindow(hWnd: HWND): Boolean
+
+    fun GetDC(hWnd: HWND?): HDC?
+
+    fun ReleaseDC(hWnd: HWND?, device: HDC): Int
+
+    fun UpdateLayeredWindow(hWnd: HWND, destinationDevice: HDC?, destinationPoint: VeilPoint?, size: VeilSize, sourceDevice: HDC, sourcePoint: VeilPoint, colorKey: Int, blend: VeilBlendFunction, flags: Int): Boolean
+
     companion object {
         val INSTANCE: VeilUser32 = Native.load("user32", VeilUser32::class.java, W32APIOptions.DEFAULT_OPTIONS)
 
@@ -59,6 +70,8 @@ interface VeilUser32 : StdCallLibrary {
 
         const val WS_EX_APPWINDOW = 0x00040000
         const val WS_EX_LAYERED = 0x00080000
+        const val WS_EX_TRANSPARENT = 0x00000020
+        const val WS_EX_NOACTIVATE = 0x08000000
         const val WS_EX_TOOLWINDOW = 0x00000080
 
         const val SWP_NOZORDER = 0x0004

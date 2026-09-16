@@ -175,6 +175,8 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
             return
         }
 
+        current.refreshOverlay(UIUtil.getPanelBackground(), VeilSettings.state())
+
         if (concealed || !awaitingGeometry) {
             return
         }

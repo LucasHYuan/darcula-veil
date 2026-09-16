@@ -36,8 +36,13 @@ class VeilConfigurable : Configurable {
     private val contrastSpinner = buildPercentSpinner()
     private val revertMediaCheckBox = JBCheckBox("Restore original colors on images and video")
 
-    private val nativeLayeredCheckBox = JBCheckBox("Blend the embedded window with the IDE background (WS_EX_LAYERED)")
+    private val nativeLayeredCheckBox = JBCheckBox("Also make the target window itself translucent (WS_EX_LAYERED)")
     private val nativeOpacitySpinner = buildSpinner(VeilSettings.MIN_NATIVE_OPACITY_PERCENT, VeilSettings.MAX_NATIVE_OPACITY_PERCENT)
+    private val overlayEnabledCheckBox = JBCheckBox("Composite a themed overlay on top of the embedded window")
+    private val overlayTintSpinner = buildSpinner(0, 100)
+    private val overlayVignetteSpinner = buildSpinner(0, 100)
+    private val overlayScanlineSpacingSpinner = buildSpinner(0, VeilSettings.MAX_SCANLINE_SPACING)
+    private val overlayScanlineSpinner = buildSpinner(0, 100)
 
     override fun getDisplayName(): String = "Darcula Veil"
 
@@ -64,9 +69,15 @@ class VeilConfigurable : Configurable {
             .addLabeledComponent(JBLabel("Contrast (%):"), contrastSpinner, 1, false)
             .addComponent(revertMediaCheckBox)
             .addComponent(TitledSeparator("Native Window Embedding"))
+            .addComponent(overlayEnabledCheckBox)
+            .addLabeledComponent(JBLabel("Overlay tint (%):"), overlayTintSpinner, 1, false)
+            .addLabeledComponent(JBLabel("Overlay vignette (%):"), overlayVignetteSpinner, 1, false)
+            .addLabeledComponent(JBLabel("Scanline spacing (px, 0 = off):"), overlayScanlineSpacingSpinner, 1, false)
+            .addLabeledComponent(JBLabel("Scanline strength (%):"), overlayScanlineSpinner, 1, false)
+            .addComponentToRightColumn(JBLabel("<html>The overlay is a layered click-through child window composited above the target.<br>It can only add pixels, not read them: tint, vignette and scanlines work,<br>contrast or palette remapping do not.</html>"))
             .addComponent(nativeLayeredCheckBox)
-            .addLabeledComponent(JBLabel("Window opacity (%):"), nativeOpacitySpinner, 1, false)
-            .addComponentToRightColumn(JBLabel("<html>Making a foreign window layered can break or slow down D3D rendering.<br>Leave it off unless the blend is worth it. Applies on Resync Geometry.</html>"))
+            .addLabeledComponent(JBLabel("Target window opacity (%):"), nativeOpacitySpinner, 1, false)
+            .addComponentToRightColumn(JBLabel("<html>Making a foreign window layered can break or slow down D3D rendering.<br>Applies on Resync Geometry.</html>"))
             .addComponentFillVertically(JBLabel(""), 0)
             .panel
     }
@@ -90,6 +101,11 @@ class VeilConfigurable : Configurable {
             || revertMediaCheckBox.isSelected != settings.revertMedia
             || nativeLayeredCheckBox.isSelected != settings.nativeLayeredEnabled
             || value(nativeOpacitySpinner) != settings.nativeOpacityPercent
+            || overlayEnabledCheckBox.isSelected != settings.overlayEnabled
+            || value(overlayTintSpinner) != settings.overlayTintPercent
+            || value(overlayVignetteSpinner) != settings.overlayVignettePercent
+            || value(overlayScanlineSpacingSpinner) != settings.overlayScanlineSpacing
+            || value(overlayScanlineSpinner) != settings.overlayScanlinePercent
     }
 
     override fun apply() {
@@ -110,6 +126,11 @@ class VeilConfigurable : Configurable {
         settings.revertMedia = revertMediaCheckBox.isSelected
         settings.nativeLayeredEnabled = nativeLayeredCheckBox.isSelected
         settings.nativeOpacityPercent = value(nativeOpacitySpinner)
+        settings.overlayEnabled = overlayEnabledCheckBox.isSelected
+        settings.overlayTintPercent = value(overlayTintSpinner)
+        settings.overlayVignettePercent = value(overlayVignetteSpinner)
+        settings.overlayScanlineSpacing = value(overlayScanlineSpacingSpinner)
+        settings.overlayScanlinePercent = value(overlayScanlineSpinner)
 
         ApplicationManager.getApplication().messageBus.syncPublisher(VeilStateListener.TOPIC).veilStateChanged()
     }
@@ -132,6 +153,11 @@ class VeilConfigurable : Configurable {
         revertMediaCheckBox.isSelected = settings.revertMedia
         nativeLayeredCheckBox.isSelected = settings.nativeLayeredEnabled
         nativeOpacitySpinner.value = settings.nativeOpacityPercent
+        overlayEnabledCheckBox.isSelected = settings.overlayEnabled
+        overlayTintSpinner.value = settings.overlayTintPercent
+        overlayVignetteSpinner.value = settings.overlayVignettePercent
+        overlayScanlineSpacingSpinner.value = settings.overlayScanlineSpacing
+        overlayScanlineSpinner.value = settings.overlayScanlinePercent
         palettePreview.repaint()
     }
 
