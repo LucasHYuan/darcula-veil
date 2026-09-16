@@ -132,13 +132,25 @@ CefRenderHandler.onPaint(browser, type, dirtyRects, buffer, width, height)
 
 **专有编解码器：H.264 / AAC / MP3 取决于 JCEF 的编译选项。** Chromium 可以带也可以不带专有编解码器，这在编译期就定了，任何命令行开关都改不了。网络上绝大多数 MP4 视频是 H.264 + AAC，所以一旦缺失，表现就是"H5 视频完全播不了"，而 WebM（VP8/VP9/Opus）仍然正常。
 
-这件事不能靠猜，工具窗标题栏的 **Media Support Report** 按钮会用 `loadHTML` 打开一个本地探测页，现场跑 `canPlayType` 和 `MediaSource.isTypeSupported`，逐项列出支持情况，并打印 `userAgent` 与当前 JCEF 版本背景。本机 JCEF 为：
+这件事不能靠猜，工具窗标题栏的 **Media Support Report** 按钮会用 `loadHTML` 打开一个本地探测页，现场跑 `canPlayType` 和 `MediaSource.isTypeSupported`。本机实测结果：
 
 ```
 JCEF_VERSION_DETAILED=144.0.15-g72717cf-chromium-144.0.7559.172-api-1.21-262-b37
+userAgent: ... Chrome/144.0.0.0 ...
+
+H.264 baseline / high   canPlayType=no        MediaSource=false
+AAC-LC                  canPlayType=no        MediaSource=false
+HLS                     canPlayType=no        MediaSource=false
+MP3                     canPlayType=probably  MediaSource=true
+VP8 / VP9 / AV1         canPlayType=probably  MediaSource=true
+Opus (ogg)              canPlayType=probably  MediaSource=false
 ```
 
-如果报告显示 H.264 一栏为 `no`，那就是编译期缺失，**插件侧无解**——只能改用 WebM 源，或走 §2.3 的 OSR 方案把解码交给外部播放器，或干脆用路线 B 直接嵌一个系统播放器窗口。
+**结论：这个 JCEF 构建不含专有编解码器。** 于是绝大多数站点的 H5 视频（H.264 + AAC，或 MSE 喂 fMP4）一律无法播放，WebM 源正常。
+
+MP3 能放是因为其专利已于 2017 年到期，Chromium 的自由构建随后默认启用；H.264 / AAC 仍在授权期内，所以依旧缺席。
+
+**OSR 解决不了这个问题。** §2.3 的离屏渲染仍然跑在同一个 CEF 二进制上，解码器缺失与渲染路径无关。真正可行的只有两条：改用 WebM 源，或走路线 B 直接嵌一个自带完整编解码器的外部浏览器 / 播放器窗口，由它负责解码，overlay 负责主题化。
 
 ---
 
