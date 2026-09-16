@@ -25,6 +25,8 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         @JvmField var paletteFloorPercent: Int = DEFAULT_PALETTE_FLOOR_PERCENT
         @JvmField var paletteCeilingPercent: Int = DEFAULT_PALETTE_CEILING_PERCENT
         @JvmField var customPaletteHex: String = ""
+        @JvmField var webVignettePercent: Int = DEFAULT_WEB_VIGNETTE_PERCENT
+        @JvmField var webVignetteCenterPercent: Int = DEFAULT_WEB_VIGNETTE_CENTER_PERCENT
 
         @JvmField var invertPercent: Int = 92
         @JvmField var hueRotateDegrees: Int = 180
@@ -66,6 +68,8 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         const val DEFAULT_NATIVE_OPACITY_PERCENT = 100
         const val MIN_NATIVE_OPACITY_PERCENT = 10
         const val MAX_NATIVE_OPACITY_PERCENT = 100
+        const val DEFAULT_WEB_VIGNETTE_PERCENT = 45
+        const val DEFAULT_WEB_VIGNETTE_CENTER_PERCENT = 35
         const val DEFAULT_OVERLAY_TINT_PERCENT = 30
         const val DEFAULT_OVERLAY_VIGNETTE_PERCENT = 45
         const val DEFAULT_OVERLAY_SCANLINE_SPACING = 0

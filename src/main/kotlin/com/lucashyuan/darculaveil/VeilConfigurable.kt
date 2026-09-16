@@ -26,6 +26,8 @@ class VeilConfigurable : Configurable {
     private val paletteCeilingSpinner = buildSpinner(0, 100)
     private val paletteSaturationSpinner = buildPercentSpinner()
     private val paletteReversedCheckBox = JBCheckBox("Reverse mapping (bright page content becomes dark)")
+    private val webVignetteSpinner = buildSpinner(0, 100)
+    private val webVignetteCenterSpinner = buildSpinner(0, 95)
     private val customPaletteField = JBTextField()
     private val palettePreview = VeilPalettePreview { PaletteStyleStrategy.buildPalette(buildUiState()) }
 
@@ -59,6 +61,9 @@ class VeilConfigurable : Configurable {
             .addLabeledComponent(JBLabel("Range ceiling (%):"), paletteCeilingSpinner, 1, false)
             .addLabeledComponent(JBLabel("Pre-quantize saturation (%):"), paletteSaturationSpinner, 1, false)
             .addComponent(paletteReversedCheckBox)
+            .addLabeledComponent(JBLabel("Edge vignette (%, 0 = off):"), webVignetteSpinner, 1, false)
+            .addLabeledComponent(JBLabel("Vignette clear radius (%):"), webVignetteCenterSpinner, 1, false)
+            .addComponentToRightColumn(JBLabel("<html>The vignette dissolves the rectangular page boundary into the tool window.<br>Enabling it moves the quantize filter from html to body so the vignette itself<br>stays unfiltered; set it to 0 to go back to filtering html directly.</html>"))
             .addLabeledComponent(JBLabel("Resulting palette:"), palettePreview, 1, false)
             .addComponentToRightColumn(JBLabel("<html>Leftmost swatch is what a white page background becomes.<br>Quantization covers images and video as well; an ancestor SVG filter<br>cannot be undone by descendants.</html>"))
             .addComponent(TitledSeparator("Continuous Filter"))
@@ -93,6 +98,8 @@ class VeilConfigurable : Configurable {
             || value(paletteCeilingSpinner) != settings.paletteCeilingPercent
             || value(paletteSaturationSpinner) != settings.paletteSourceSaturationPercent
             || paletteReversedCheckBox.isSelected != settings.paletteReversed
+            || value(webVignetteSpinner) != settings.webVignettePercent
+            || value(webVignetteCenterSpinner) != settings.webVignetteCenterPercent
             || value(invertSpinner) != settings.invertPercent
             || value(hueRotateSpinner) != settings.hueRotateDegrees
             || value(saturateSpinner) != settings.saturatePercent
@@ -118,6 +125,8 @@ class VeilConfigurable : Configurable {
         settings.paletteCeilingPercent = value(paletteCeilingSpinner)
         settings.paletteSourceSaturationPercent = value(paletteSaturationSpinner)
         settings.paletteReversed = paletteReversedCheckBox.isSelected
+        settings.webVignettePercent = value(webVignetteSpinner)
+        settings.webVignetteCenterPercent = value(webVignetteCenterSpinner)
         settings.invertPercent = value(invertSpinner)
         settings.hueRotateDegrees = value(hueRotateSpinner)
         settings.saturatePercent = value(saturateSpinner)
@@ -145,6 +154,8 @@ class VeilConfigurable : Configurable {
         paletteCeilingSpinner.value = settings.paletteCeilingPercent
         paletteSaturationSpinner.value = settings.paletteSourceSaturationPercent
         paletteReversedCheckBox.isSelected = settings.paletteReversed
+        webVignetteSpinner.value = settings.webVignettePercent
+        webVignetteCenterSpinner.value = settings.webVignetteCenterPercent
         invertSpinner.value = settings.invertPercent
         hueRotateSpinner.value = settings.hueRotateDegrees
         saturateSpinner.value = settings.saturatePercent

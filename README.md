@@ -428,6 +428,28 @@ private fun restoredStyle(showAfterDetach: Boolean): Int {
 | `syntax` | 额外取 comment / keyword / string / number / function / class 前景色 | 保留彩色层次，但显眼 |
 | `custom` | 用户填的 hex 列表 | 完全手动控制 |
 
+### 边缘渐晕：为什么量化还不够
+
+量化只改颜色，不改形状。页面被压成暗色之后，它**仍然是一个边缘齐整的矩形**贴在工具窗里，轮廓一眼可辨。真正让内容"看不出来"的是渐晕——四周淡出融进面板底色，矩形边界随之消失。这一点路线 B 的 overlay 天然具备，路线 A 最初没有。
+
+麻烦在于渐晕不能被量化：它用的是面板底色（暗色），而反向映射会把暗输入映射到色板**亮端**，渐晕会变成一圈发亮的光晕。祖先元素上的 filter 又无法被后代豁免，所以渐晕必须待在滤镜作用域之外。
+
+解法是把滤镜从 `html` 下移到 `body`，渐晕挂在 `html::after` 上——它是 `html` 的伪元素，不是 `body` 的后代，因此不受滤镜影响：
+
+```css
+html { background-color: #1e1f22; }          /* 见下 */
+body { filter: url(#darcula-veil-quantize); }
+html::after {
+  content: ""; position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 2147483647; opacity: 0.45;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, #1e1f22 100%);
+}
+```
+
+`html` 的显式背景色不能省。滤镜移到 `body` 之后，视口画布的背景仍由背景传播机制决定，**不在 `body` 的滤镜作用域内**——不显式指定的话，页面原本的白色背景会原封不动地露出来。这里填的是色板中白色所映射到的那个颜色，即 `palette.last()`。
+
+渐晕强度设为 0 时回退到直接滤镜 `html` 的旧结构，作为出问题时的退路。
+
 ### 映射方向：必须反向
 
 `feFuncX type="discrete"` 的语义是「输入 0 取表首，输入 1 取表尾」。色带按亮度升序排列时，**白色页面背景（亮度≈1）会映射到色带末端，也就是最亮的前景色**——结果是整页变成浅灰，比原页面更扎眼，与目标完全相反。
