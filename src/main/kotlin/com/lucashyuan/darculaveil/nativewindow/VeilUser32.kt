@@ -78,6 +78,7 @@ interface VeilUser32 : StdCallLibrary {
         const val SWP_NOACTIVATE = 0x0010
         const val SWP_FRAMECHANGED = 0x0020
         const val SWP_SHOWWINDOW = 0x0040
+        const val SWP_ASYNCWINDOWPOS = 0x4000
 
         const val SW_HIDE = 0
         const val SW_SHOW = 5

@@ -114,6 +114,10 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
         canvas.addMouseListener(object : MouseAdapter() {
             override fun mousePressed(event: MouseEvent) {
+                if (!VeilSettings.state().nativeFocusTransferEnabled) {
+                    return
+                }
+
                 embedder?.transferFocus()
             }
         })
@@ -129,6 +133,7 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
 
         if (current.isAlive()) {
             revealWhenReady()
+            current.refreshOverlay(UIUtil.getPanelBackground(), VeilSettings.state())
             return
         }
 
@@ -174,8 +179,6 @@ class VeilNativePanel : JPanel(BorderLayout()), Disposable {
         if (!current.syncGeometry()) {
             return
         }
-
-        current.refreshOverlay(UIUtil.getPanelBackground(), VeilSettings.state())
 
         if (concealed || !awaitingGeometry) {
             return

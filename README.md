@@ -367,6 +367,30 @@ private fun restoredStyle(showAfterDetach: Boolean): Int {
 
 只有整窗 alpha（默认关闭），没有色板量化。这不是未实现，是 §3.3 那条结构性矛盾的直接后果：reparent 保住了输入，代价是像素完全由对方进程的 D3D / GDI 管线产出，我们没有任何插入点。想要真正的 shader 后处理必须换 Windows Graphics Capture，而那会让输入链彻底断掉。
 
+### 跨进程调用的两条硬规矩
+
+嵌入外部窗口意味着在 EDT 上对**别的进程的窗口**发起 Win32 调用，有两处必须防死。
+
+**一、`AttachThreadInput` 必须 try/finally 配对。** 它把两个进程的输入队列绑在一起，绑上之后如果解绑那行没能执行，绑定会**永久泄漏**——症状是 JVM 完好、后台线程照常打日志、`PerformanceWatcher` 也不报冻结，但 IDE 窗口再也不响应输入。这种卡死发生在 Win32 输入层，不在 JVM 层，所以任何 Java 侧的诊断都看不到它。
+
+```kotlin
+if (!user32.AttachThreadInput(currentThreadId, targetThreadId, true)) {
+    return
+}
+
+try {
+    user32.SetFocus(target)
+} finally {
+    user32.AttachThreadInput(currentThreadId, targetThreadId, false)
+}
+```
+
+设置里另留了一个开关可以彻底关掉焦点转移，用于排除这条路径。
+
+**二、对外部窗口的 `SetWindowPos` 一律加 `SWP_ASYNCWINDOWPOS`。** 默认行为是**同步**向目标窗口所属线程发送 `WM_WINDOWPOSCHANGING` / `WM_NCCALCSIZE`，若那个线程正忙或已卡住，调用方会一起阻塞。watchdog 每秒都会对目标做一次几何同步，一旦目标是个偶尔卡顿的游戏，IDE 就会跟着一起卡。加上这个标志后请求改为投递，调用立即返回。
+
+overlay 的像素渲染也只在 watchdog 里做，不挂在 `componentResized` 上——否则拖动工具窗边界时会逐帧重算上百万像素，全部压在 EDT 上。
+
 ### 使用限制
 
 - **目标必须是窗口化或无边框窗口化。** 独占全屏的 D3D 窗口 reparent 之后行为未定义，先在游戏里切到 Borderless。

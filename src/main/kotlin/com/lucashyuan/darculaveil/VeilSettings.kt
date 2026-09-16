@@ -35,6 +35,7 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         @JvmField var contrastPercent: Int = 100
         @JvmField var revertMedia: Boolean = true
 
+        @JvmField var nativeFocusTransferEnabled: Boolean = true
         @JvmField var nativeLayeredEnabled: Boolean = false
         @JvmField var nativeOpacityPercent: Int = DEFAULT_NATIVE_OPACITY_PERCENT
 

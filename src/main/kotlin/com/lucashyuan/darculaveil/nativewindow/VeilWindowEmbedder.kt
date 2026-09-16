@@ -1,10 +1,13 @@
 package com.lucashyuan.darculaveil.nativewindow
 
+import com.intellij.openapi.diagnostic.Logger
 import com.lucashyuan.darculaveil.VeilSettings
 import com.sun.jna.platform.win32.Kernel32
 import com.sun.jna.platform.win32.WinDef.HWND
 import com.sun.jna.platform.win32.WinDef.RECT
 import java.awt.Color
+
+private val LOG = Logger.getInstance(VeilWindowEmbedder::class.java)
 
 class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
 
@@ -22,7 +25,7 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         user32.SetWindowLong(target, VeilUser32.GWL_STYLE, buildChildStyle())
         user32.SetWindowLong(target, VeilUser32.GWL_EXSTYLE, buildChildExStyle())
         user32.SetParent(target, host)
-        user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+        user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE or VeilUser32.SWP_ASYNCWINDOWPOS)
         syncGeometry()
     }
 
@@ -111,7 +114,7 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
             return true
         }
 
-        return user32.SetWindowPos(target, null, 0, 0, width, height, VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+        return user32.SetWindowPos(target, null, 0, 0, width, height, VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE or VeilUser32.SWP_ASYNCWINDOWPOS)
     }
 
     fun applyOpacity(enabled: Boolean, opacityPercent: Int) {
@@ -123,7 +126,7 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
 
         if (!enabled) {
             user32.SetWindowLong(target, VeilUser32.GWL_EXSTYLE, exStyle and VeilUser32.WS_EX_LAYERED.inv())
-            user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+            user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE or VeilUser32.SWP_ASYNCWINDOWPOS)
             return
         }
 
@@ -144,9 +147,16 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
             return
         }
 
-        user32.AttachThreadInput(currentThreadId, targetThreadId, true)
-        user32.SetFocus(target)
-        user32.AttachThreadInput(currentThreadId, targetThreadId, false)
+        if (!user32.AttachThreadInput(currentThreadId, targetThreadId, true)) {
+            LOG.info("AttachThreadInput refused, skipping focus transfer")
+            return
+        }
+
+        try {
+            user32.SetFocus(target)
+        } finally {
+            user32.AttachThreadInput(currentThreadId, targetThreadId, false)
+        }
     }
 
     fun isAlive(): Boolean = user32.IsWindow(target)
@@ -165,14 +175,14 @@ class VeilWindowEmbedder(private val target: HWND, private val host: HWND) {
         val bounds = originalBounds
 
         if (bounds == null) {
-            user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+            user32.SetWindowPos(target, null, 0, 0, 0, 0, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE or VeilUser32.SWP_ASYNCWINDOWPOS)
             return
         }
 
         val width = bounds.right - bounds.left
         val height = bounds.bottom - bounds.top
 
-        user32.SetWindowPos(target, null, bounds.left, bounds.top, width, height, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE)
+        user32.SetWindowPos(target, null, bounds.left, bounds.top, width, height, VeilUser32.SWP_FRAMECHANGED or VeilUser32.SWP_NOZORDER or VeilUser32.SWP_NOACTIVATE or VeilUser32.SWP_ASYNCWINDOWPOS)
     }
 
     private fun restoredStyle(showAfterDetach: Boolean): Int {

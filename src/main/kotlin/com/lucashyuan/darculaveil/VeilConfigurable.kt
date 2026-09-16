@@ -38,6 +38,7 @@ class VeilConfigurable : Configurable {
     private val contrastSpinner = buildPercentSpinner()
     private val revertMediaCheckBox = JBCheckBox("Restore original colors on images and video")
 
+    private val nativeFocusTransferCheckBox = JBCheckBox("Transfer keyboard focus on click (AttachThreadInput)")
     private val nativeLayeredCheckBox = JBCheckBox("Also make the target window itself translucent (WS_EX_LAYERED)")
     private val nativeOpacitySpinner = buildSpinner(VeilSettings.MIN_NATIVE_OPACITY_PERCENT, VeilSettings.MAX_NATIVE_OPACITY_PERCENT)
     private val overlayEnabledCheckBox = JBCheckBox("Composite a themed overlay on top of the embedded window")
@@ -80,6 +81,8 @@ class VeilConfigurable : Configurable {
             .addLabeledComponent(JBLabel("Scanline spacing (px, 0 = off):"), overlayScanlineSpacingSpinner, 1, false)
             .addLabeledComponent(JBLabel("Scanline strength (%):"), overlayScanlineSpinner, 1, false)
             .addComponentToRightColumn(JBLabel("<html>The overlay is a layered click-through child window composited above the target.<br>It can only add pixels, not read them: tint, vignette and scanlines work,<br>contrast or palette remapping do not.</html>"))
+            .addComponent(nativeFocusTransferCheckBox)
+            .addComponentToRightColumn(JBLabel("<html>Attaching input queues across processes is the most dangerous call in this plugin.<br>Turn it off if the IDE ever stops responding to input while a window is embedded.</html>"))
             .addComponent(nativeLayeredCheckBox)
             .addLabeledComponent(JBLabel("Target window opacity (%):"), nativeOpacitySpinner, 1, false)
             .addComponentToRightColumn(JBLabel("<html>Making a foreign window layered can break or slow down D3D rendering.<br>Applies on Resync Geometry.</html>"))
@@ -106,6 +109,7 @@ class VeilConfigurable : Configurable {
             || value(brightnessSpinner) != settings.brightnessPercent
             || value(contrastSpinner) != settings.contrastPercent
             || revertMediaCheckBox.isSelected != settings.revertMedia
+            || nativeFocusTransferCheckBox.isSelected != settings.nativeFocusTransferEnabled
             || nativeLayeredCheckBox.isSelected != settings.nativeLayeredEnabled
             || value(nativeOpacitySpinner) != settings.nativeOpacityPercent
             || overlayEnabledCheckBox.isSelected != settings.overlayEnabled
@@ -133,6 +137,7 @@ class VeilConfigurable : Configurable {
         settings.brightnessPercent = value(brightnessSpinner)
         settings.contrastPercent = value(contrastSpinner)
         settings.revertMedia = revertMediaCheckBox.isSelected
+        settings.nativeFocusTransferEnabled = nativeFocusTransferCheckBox.isSelected
         settings.nativeLayeredEnabled = nativeLayeredCheckBox.isSelected
         settings.nativeOpacityPercent = value(nativeOpacitySpinner)
         settings.overlayEnabled = overlayEnabledCheckBox.isSelected
@@ -162,6 +167,7 @@ class VeilConfigurable : Configurable {
         brightnessSpinner.value = settings.brightnessPercent
         contrastSpinner.value = settings.contrastPercent
         revertMediaCheckBox.isSelected = settings.revertMedia
+        nativeFocusTransferCheckBox.isSelected = settings.nativeFocusTransferEnabled
         nativeLayeredCheckBox.isSelected = settings.nativeLayeredEnabled
         nativeOpacitySpinner.value = settings.nativeOpacityPercent
         overlayEnabledCheckBox.isSelected = settings.overlayEnabled
