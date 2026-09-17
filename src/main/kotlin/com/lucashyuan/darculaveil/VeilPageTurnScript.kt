@@ -8,6 +8,9 @@ object VeilPageTurnScript {
     private const val TURN_PROPERTY = "__darculaVeilTurn"
     private const val LISTENER_PROPERTY = "__darculaVeilTurnKeys"
     private const val SCROLLER_PROPERTY = "__darculaVeilScroller"
+    private const val SCROLLABLE_PROPERTY = "__darculaVeilScrollable"
+    private const val CANDIDATES_PROPERTY = "__darculaVeilCandidates"
+    private const val COUNTER_PROPERTY = "__darculaVeilCounters"
     private const val WHEEL_PROPERTY = "__darculaVeilTurnWheel"
     private const val DIAGNOSTIC_ELEMENT_ID = "darcula-veil-diagnostic"
 
@@ -18,33 +21,72 @@ object VeilPageTurnScript {
 
         return """
             (function() {
-                window.$SCROLLER_PROPERTY = function() {
-                    var fallback = document.scrollingElement || document.documentElement;
-                    var best = fallback;
-                    var bestGap = fallback.scrollHeight - fallback.clientHeight;
-                    var candidates = document.querySelectorAll("div,main,section,article");
+                window.$SCROLLABLE_PROPERTY = function(node) {
+                    if (!node || !node.scrollHeight) {
+                        return false;
+                    }
+                    if (node.scrollHeight - node.clientHeight <= 4) {
+                        return false;
+                    }
+                    var overflow = window.getComputedStyle(node).overflowY;
 
-                    for (var i = 0; i < candidates.length; i++) {
-                        var node = candidates[i];
-                        if (node.clientHeight < window.innerHeight * 0.4) {
-                            continue;
-                        }
-                        var overflow = window.getComputedStyle(node).overflowY;
-                        if (overflow !== "auto" && overflow !== "scroll") {
-                            continue;
-                        }
+                    return overflow === "auto" || overflow === "scroll" || overflow === "overlay" || node === document.scrollingElement || node === document.documentElement || node === document.body;
+                };
+
+                window.$CANDIDATES_PROPERTY = function() {
+                    var scored = [];
+                    var all = document.querySelectorAll("*");
+
+                    for (var i = 0; i < all.length; i++) {
+                        var node = all[i];
                         var gap = node.scrollHeight - node.clientHeight;
-                        if (gap > bestGap) {
-                            best = node;
-                            bestGap = gap;
+                        if (gap > 4) {
+                            scored.push({ node: node, gap: gap });
                         }
                     }
 
-                    return best;
+                    scored.sort(function(a, b) { return b.gap - a.gap; });
+
+                    return scored;
                 };
 
+                window.$SCROLLER_PROPERTY = function() {
+                    var probe = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2));
+
+                    while (probe) {
+                        if (window.$SCROLLABLE_PROPERTY(probe)) {
+                            return probe;
+                        }
+                        probe = probe.parentElement;
+                    }
+
+                    var candidates = window.$CANDIDATES_PROPERTY();
+
+                    for (var i = 0; i < candidates.length; i++) {
+                        if (window.$SCROLLABLE_PROPERTY(candidates[i].node)) {
+                            return candidates[i].node;
+                        }
+                    }
+
+                    if (candidates.length > 0) {
+                        return candidates[0].node;
+                    }
+
+                    return document.scrollingElement || document.documentElement;
+                };
+
+                if (!window.$COUNTER_PROPERTY) {
+                    window.$COUNTER_PROPERTY = { wheelSeen: 0, wheelMatched: 0, turned: 0, moved: 0 };
+                }
+
                 window.$TURN_PROPERTY = function(direction) {
+                    window.$COUNTER_PROPERTY.turned++;
+                    var probe = window.$SCROLLER_PROPERTY();
+                    var beforeTop = probe ? probe.scrollTop : 0;
                     $body
+                    if (probe && probe.scrollTop !== beforeTop) {
+                        window.$COUNTER_PROPERTY.moved++;
+                    }
                 };
 
                 if (window.$WHEEL_PROPERTY) {
@@ -59,6 +101,7 @@ object VeilPageTurnScript {
                         if (!event.isTrusted) {
                             return;
                         }
+                        window.$COUNTER_PROPERTY.wheelSeen++;
                         var up = event.deltaY < 0;
                         for (var i = 0; i < wheelBindings.length; i++) {
                             var binding = wheelBindings[i];
@@ -68,6 +111,7 @@ object VeilPageTurnScript {
                             if (binding.shift !== event.shiftKey || binding.ctrl !== event.ctrlKey || binding.alt !== event.altKey) {
                                 continue;
                             }
+                            window.$COUNTER_PROPERTY.wheelMatched++;
                             window.$TURN_PROPERTY(binding.direction);
                             event.preventDefault();
                             event.stopPropagation();
@@ -147,8 +191,20 @@ object VeilPageTurnScript {
                     "wheel listener installed: " + (typeof window.$WHEEL_PROPERTY === "function"),
                     "wheel bindings from keymap: " + ${VeilKeymapBridge.buildWheelBindingsLiteral()}.length,
                     "scroller: " + describe(scroller),
-                    "document scroller: " + describe(document.scrollingElement || document.documentElement)
+                    "document scroller: " + describe(document.scrollingElement || document.documentElement),
+                    "counters: " + JSON.stringify(window.$COUNTER_PROPERTY || {}),
+                    "scrollable candidates:"
                 ];
+
+                var candidates = window.$CANDIDATES_PROPERTY ? window.$CANDIDATES_PROPERTY() : [];
+
+                if (candidates.length === 0) {
+                    lines.push("  NONE - this page does not scroll, use click-selector mode");
+                }
+
+                for (var c = 0; c < candidates.length && c < 5; c++) {
+                    lines.push("  gap=" + candidates[c].gap + "  " + describe(candidates[c].node));
+                }
 
                 var existing = document.getElementById("$DIAGNOSTIC_ELEMENT_ID");
                 if (existing && existing.parentNode) {
