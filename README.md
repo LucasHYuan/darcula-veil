@@ -163,6 +163,20 @@ override fun onPreKeyEvent(cefBrowser: CefBrowser, event: CefKeyboardHandler.Cef
 
 回调在 CEF 线程上，执行 action 必须 `invokeLater` 回 EDT。
 
+**合成事件只能派发一次。** 最初的方向键实现往 `document`、`document.body`、`document.activeElement` 各派发一次以求命中，但键盘事件会冒泡——从 `body` 派发的事件照样到达 `document`，`activeElement` 的也是。于是监听 `document` 的页面一次触发收到三遍，直接翻三页。
+
+正确做法是只往**最深的那个目标**派发一次，靠冒泡覆盖上层所有监听器：
+
+```js
+var target = document.activeElement;
+if (!target || !target.isConnected) {
+    target = document.body || document.documentElement;
+}
+target.dispatchEvent(new KeyboardEvent("keydown", { ... bubbles: true }));
+```
+
+此外一次滚轮手势常常产生多个 `wheel` 事件，因此 `__darculaVeilTurn` 内置了可配置的冷却时间（默认 250ms），被挡下的次数计入诊断的 `throttled`。
+
 **鼠标快捷键走的是另一条路。** `CefKeyboardHandler` 只管键盘，JCEF 没有对应的鼠标 handler，滚轮事件直接进 Chromium，桥接拦不到。
 
 所以改为从 keymap **读出**绑定再镜像进页面：`activeKeymap.getShortcuts(actionId)` 取出 `MouseShortcut`，筛 `BUTTON_WHEEL_UP` / `BUTTON_WHEEL_DOWN`，连同修饰键生成一段 JS 字面量，注入的 `wheel` 监听器按它匹配。keymap 仍然是唯一真源，只是执行点从 IDE 挪到了页面内。
@@ -230,7 +244,7 @@ counters: {"wheelSeen":26,"wheelMatched":26,"turned":78,"moved":41}
 |---|---|
 | `scroll` | 按视口高度百分比滚动，`scrollBy` 无效时直接写 `scrollTop` 兜底 |
 | `synthesize-wheel` | 向视口中心的元素派发合成 `WheelEvent`，驱动页面自己的滚动实现 |
-| `arrow-keys` | 向 `document` / `body` / `activeElement` 派发方向键事件，交给页面自己的翻页逻辑 |
+| `arrow-keys` | 向单个目标派发方向键事件，交给页面自己的翻页逻辑 |
 | `click-selector` | 按配置的 CSS 选择器找到翻页按钮并 `click()` |
 
 ### 2.5 扫码登录与滤镜的冲突

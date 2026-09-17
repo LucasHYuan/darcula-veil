@@ -15,18 +15,15 @@ object ArrowKeyPageTurnStrategy : VeilPageTurnStrategy {
             var forward = direction > 0;
             var name = forward ? "ArrowRight" : "ArrowLeft";
             var code = forward ? 39 : 37;
-            var targets = [document, document.body];
-            if (document.activeElement) {
-                targets.push(document.activeElement);
+            var target = document.activeElement;
+
+            if (!target || !target.isConnected) {
+                target = document.body || document.documentElement;
             }
-            for (var i = 0; i < targets.length; i++) {
-                if (!targets[i]) {
-                    continue;
-                }
-                targets[i].dispatchEvent(new KeyboardEvent("keydown", {
-                    key: name, code: name, keyCode: code, which: code, bubbles: true, cancelable: true
-                }));
-            }
+
+            target.dispatchEvent(new KeyboardEvent("keydown", {
+                key: name, code: name, keyCode: code, which: code, bubbles: true, cancelable: true
+            }));
         """.trimIndent()
     }
 }

@@ -39,6 +39,7 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         @JvmField var pageTurnStrategyId: String = ScrollPageTurnStrategy.ID
         @JvmField var pageTurnScrollPercent: Int = DEFAULT_PAGE_TURN_SCROLL_PERCENT
         @JvmField var pageTurnKeysEnabled: Boolean = true
+        @JvmField var pageTurnCooldownMs: Int = DEFAULT_PAGE_TURN_COOLDOWN_MS
         @JvmField var keymapBridgeEnabled: Boolean = true
         @JvmField var pageTurnWheelMirrorEnabled: Boolean = false
         @JvmField var pageTurnForwardKey: String = "ArrowRight"
@@ -80,6 +81,8 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         const val DEFAULT_NATIVE_OPACITY_PERCENT = 100
         const val MIN_NATIVE_OPACITY_PERCENT = 10
         const val MAX_NATIVE_OPACITY_PERCENT = 100
+        const val DEFAULT_PAGE_TURN_COOLDOWN_MS = 250
+        const val MAX_PAGE_TURN_COOLDOWN_MS = 2000
         const val DEFAULT_PAGE_TURN_SCROLL_PERCENT = 90
         const val MIN_PAGE_TURN_SCROLL_PERCENT = 10
         const val DEFAULT_WEB_VIGNETTE_PERCENT = 45

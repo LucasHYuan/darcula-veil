@@ -76,10 +76,19 @@ object VeilPageTurnScript {
                 };
 
                 if (!window.$COUNTER_PROPERTY) {
-                    window.$COUNTER_PROPERTY = { wheelSeen: 0, wheelMatched: 0, turned: 0, moved: 0 };
+                    window.$COUNTER_PROPERTY = { wheelSeen: 0, wheelMatched: 0, turned: 0, moved: 0, throttled: 0, lastTurnAt: 0 };
                 }
 
                 window.$TURN_PROPERTY = function(direction) {
+                    var cooldown = ${settings.pageTurnCooldownMs};
+                    var now = Date.now();
+
+                    if (cooldown > 0 && now - window.$COUNTER_PROPERTY.lastTurnAt < cooldown) {
+                        window.$COUNTER_PROPERTY.throttled++;
+                        return;
+                    }
+
+                    window.$COUNTER_PROPERTY.lastTurnAt = now;
                     window.$COUNTER_PROPERTY.turned++;
                     var probe = window.$SCROLLER_PROPERTY();
                     var beforeTop = probe ? probe.scrollTop : 0;
@@ -194,6 +203,7 @@ object VeilPageTurnScript {
                     "scroller: " + describe(scroller),
                     "document scroller: " + describe(document.scrollingElement || document.documentElement),
                     "counters: " + JSON.stringify(window.$COUNTER_PROPERTY || {}),
+                    "cooldown ms: " + ${VeilSettings.state().pageTurnCooldownMs},
                     "scrollable candidates:"
                 ];
 

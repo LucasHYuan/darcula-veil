@@ -41,6 +41,7 @@ class VeilConfigurable : Configurable {
 
     private val pageTurnStrategyBox = ComboBox(VeilPageTurnStrategies.displayNames().toTypedArray())
     private val pageTurnScrollSpinner = buildSpinner(VeilSettings.MIN_PAGE_TURN_SCROLL_PERCENT, 100)
+    private val pageTurnCooldownSpinner = buildSpinner(0, VeilSettings.MAX_PAGE_TURN_COOLDOWN_MS)
     private val pageTurnKeysCheckBox = JBCheckBox("Handle page turn keys inside the page")
     private val keymapBridgeCheckBox = JBCheckBox("Route IDE keymap shortcuts into the focused browser")
     private val pageTurnWheelMirrorCheckBox = JBCheckBox("Also mirror wheel shortcuts inside the page (usually redundant)")
@@ -88,6 +89,7 @@ class VeilConfigurable : Configurable {
             .addComponent(TitledSeparator("Page Turning"))
             .addLabeledComponent(JBLabel("Turn mode:"), pageTurnStrategyBox, 1, false)
             .addLabeledComponent(JBLabel("Scroll amount (% of viewport):"), pageTurnScrollSpinner, 1, false)
+            .addLabeledComponent(JBLabel("Cooldown between turns (ms, 0 = off):"), pageTurnCooldownSpinner, 1, false)
             .addLabeledComponent(JBLabel("Next page CSS selector:"), pageTurnForwardSelectorField, 1, false)
             .addLabeledComponent(JBLabel("Previous page CSS selector:"), pageTurnBackwardSelectorField, 1, false)
             .addComponent(pageTurnKeysCheckBox)
@@ -133,6 +135,7 @@ class VeilConfigurable : Configurable {
             || revertMediaCheckBox.isSelected != settings.revertMedia
             || selectedPageTurnStrategyId() != settings.pageTurnStrategyId
             || value(pageTurnScrollSpinner) != settings.pageTurnScrollPercent
+            || value(pageTurnCooldownSpinner) != settings.pageTurnCooldownMs
             || pageTurnKeysCheckBox.isSelected != settings.pageTurnKeysEnabled
             || keymapBridgeCheckBox.isSelected != settings.keymapBridgeEnabled
             || pageTurnWheelMirrorCheckBox.isSelected != settings.pageTurnWheelMirrorEnabled
@@ -170,6 +173,7 @@ class VeilConfigurable : Configurable {
         settings.revertMedia = revertMediaCheckBox.isSelected
         settings.pageTurnStrategyId = selectedPageTurnStrategyId()
         settings.pageTurnScrollPercent = value(pageTurnScrollSpinner)
+        settings.pageTurnCooldownMs = value(pageTurnCooldownSpinner)
         settings.pageTurnKeysEnabled = pageTurnKeysCheckBox.isSelected
         settings.keymapBridgeEnabled = keymapBridgeCheckBox.isSelected
         settings.pageTurnWheelMirrorEnabled = pageTurnWheelMirrorCheckBox.isSelected
@@ -209,6 +213,7 @@ class VeilConfigurable : Configurable {
         revertMediaCheckBox.isSelected = settings.revertMedia
         pageTurnStrategyBox.selectedItem = VeilPageTurnStrategies.byId(settings.pageTurnStrategyId).displayName
         pageTurnScrollSpinner.value = settings.pageTurnScrollPercent
+        pageTurnCooldownSpinner.value = settings.pageTurnCooldownMs
         pageTurnKeysCheckBox.isSelected = settings.pageTurnKeysEnabled
         keymapBridgeCheckBox.isSelected = settings.keymapBridgeEnabled
         pageTurnWheelMirrorCheckBox.isSelected = settings.pageTurnWheelMirrorEnabled
