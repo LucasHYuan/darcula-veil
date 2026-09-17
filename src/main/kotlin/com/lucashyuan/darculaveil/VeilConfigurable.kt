@@ -42,6 +42,7 @@ class VeilConfigurable : Configurable {
     private val pageTurnStrategyBox = ComboBox(VeilPageTurnStrategies.displayNames().toTypedArray())
     private val pageTurnScrollSpinner = buildSpinner(VeilSettings.MIN_PAGE_TURN_SCROLL_PERCENT, 100)
     private val pageTurnKeysCheckBox = JBCheckBox("Handle page turn keys inside the page")
+    private val keymapBridgeCheckBox = JBCheckBox("Route IDE keymap shortcuts into the focused browser")
     private val pageTurnForwardKeyField = JBTextField()
     private val pageTurnBackwardKeyField = JBTextField()
     private val pageTurnForwardSelectorField = JBTextField()
@@ -89,6 +90,7 @@ class VeilConfigurable : Configurable {
             .addLabeledComponent(JBLabel("Next page CSS selector:"), pageTurnForwardSelectorField, 1, false)
             .addLabeledComponent(JBLabel("Previous page CSS selector:"), pageTurnBackwardSelectorField, 1, false)
             .addComponent(pageTurnKeysCheckBox)
+            .addComponent(keymapBridgeCheckBox)
             .addLabeledComponent(JBLabel("Forward key (KeyboardEvent.key):"), pageTurnForwardKeyField, 1, false)
             .addLabeledComponent(JBLabel("Backward key (KeyboardEvent.key):"), pageTurnBackwardKeyField, 1, false)
             .addComponentToRightColumn(JBLabel("<html>Keys are handled by a listener injected into the page, because a focused<br>JCEF window consumes keystrokes before the IDE action system sees them.<br>DarculaVeil.PageForward / PageBackward are also available in Keymap.</html>"))
@@ -130,6 +132,7 @@ class VeilConfigurable : Configurable {
             || selectedPageTurnStrategyId() != settings.pageTurnStrategyId
             || value(pageTurnScrollSpinner) != settings.pageTurnScrollPercent
             || pageTurnKeysCheckBox.isSelected != settings.pageTurnKeysEnabled
+            || keymapBridgeCheckBox.isSelected != settings.keymapBridgeEnabled
             || pageTurnForwardKeyField.text != settings.pageTurnForwardKey
             || pageTurnBackwardKeyField.text != settings.pageTurnBackwardKey
             || pageTurnForwardSelectorField.text != settings.pageTurnForwardSelector
@@ -165,6 +168,7 @@ class VeilConfigurable : Configurable {
         settings.pageTurnStrategyId = selectedPageTurnStrategyId()
         settings.pageTurnScrollPercent = value(pageTurnScrollSpinner)
         settings.pageTurnKeysEnabled = pageTurnKeysCheckBox.isSelected
+        settings.keymapBridgeEnabled = keymapBridgeCheckBox.isSelected
         settings.pageTurnForwardKey = pageTurnForwardKeyField.text
         settings.pageTurnBackwardKey = pageTurnBackwardKeyField.text
         settings.pageTurnForwardSelector = pageTurnForwardSelectorField.text
@@ -202,6 +206,7 @@ class VeilConfigurable : Configurable {
         pageTurnStrategyBox.selectedItem = VeilPageTurnStrategies.byId(settings.pageTurnStrategyId).displayName
         pageTurnScrollSpinner.value = settings.pageTurnScrollPercent
         pageTurnKeysCheckBox.isSelected = settings.pageTurnKeysEnabled
+        keymapBridgeCheckBox.isSelected = settings.keymapBridgeEnabled
         pageTurnForwardKeyField.text = settings.pageTurnForwardKey
         pageTurnBackwardKeyField.text = settings.pageTurnBackwardKey
         pageTurnForwardSelectorField.text = settings.pageTurnForwardSelector

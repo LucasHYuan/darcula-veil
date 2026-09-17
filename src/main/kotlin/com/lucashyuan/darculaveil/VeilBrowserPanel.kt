@@ -7,19 +7,23 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.colors.EditorColorsListener
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.EditorColorsScheme
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.util.ui.UIUtil
 import com.lucashyuan.darculaveil.style.VeilStyleStrategies
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
+import org.cef.handler.CefKeyboardHandler
+import org.cef.handler.CefKeyboardHandlerAdapter
 import org.cef.handler.CefLifeSpanHandlerAdapter
 import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.misc.BoolRef
 import org.cef.network.CefRequest
 import java.awt.BorderLayout
 import javax.swing.JPanel
 
-class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
+class VeilBrowserPanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
 
     private val browser = JBCefBrowser(VeilSettings.state().homeUrl)
 
@@ -29,6 +33,7 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
         add(browser.component, BorderLayout.CENTER)
         installLoadHandler()
         installLifeSpanHandler()
+        installKeyboardHandler()
         subscribeToStateChanges()
     }
 
@@ -100,6 +105,28 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
         }
 
         browser.jbCefClient.addLoadHandler(handler, browser.cefBrowser)
+    }
+
+    private fun installKeyboardHandler() {
+        val handler = object : CefKeyboardHandlerAdapter() {
+            override fun onPreKeyEvent(cefBrowser: CefBrowser, event: CefKeyboardHandler.CefKeyEvent, isShortcut: BoolRef): Boolean {
+                if (!VeilSettings.state().keymapBridgeEnabled) {
+                    return false
+                }
+
+                if (event.type != CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN) {
+                    return false
+                }
+
+                val actionId = VeilKeymapBridge.resolveActionId(event.windows_key_code, event.modifiers) ?: return false
+
+                VeilKeymapBridge.invoke(project, actionId)
+
+                return true
+            }
+        }
+
+        browser.jbCefClient.addKeyboardHandler(handler, browser.cefBrowser)
     }
 
     private fun installLifeSpanHandler() {

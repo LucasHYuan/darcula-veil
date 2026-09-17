@@ -138,6 +138,31 @@ CefRenderHandler.onPaint(browser, type, dirtyRects, buffer, width, height)
 - `input` / `textarea` / `isContentEditable` 里不拦截，否则输入框里按方向键会翻页。
 - 带 Ctrl / Alt / Meta 时不拦截，把组合键让给页面和 IDE。
 
+**IDE keymap 的快捷键可以生效，但必须由插件自己搭桥。** 平台的 action 系统确实看不到这些按键，不过 JCEF 暴露了 `CefKeyboardHandler`，能在 CEF 层拿到原始按键：
+
+```kotlin
+override fun onPreKeyEvent(cefBrowser: CefBrowser, event: CefKeyboardHandler.CefKeyEvent, isShortcut: BoolRef): Boolean {
+    if (event.type != CefKeyboardHandler.CefKeyEvent.EventType.KEYEVENT_RAWKEYDOWN) {
+        return false
+    }
+
+    val actionId = VeilKeymapBridge.resolveActionId(event.windows_key_code, event.modifiers) ?: return false
+    VeilKeymapBridge.invoke(project, actionId)
+
+    return true
+}
+```
+
+拿到按键后用 `KeymapManager.getInstance().activeKeymap.getActionIds(keyStroke)` 反查用户绑的是什么，命中才执行。
+
+三个实现细节：
+
+- **只认白名单内的 action id。** 把任意 IDE action 从网页里触发出来既意外又危险，桥只放行本插件自己的四个 action。
+- **只处理 `KEYEVENT_RAWKEYDOWN`。** 一次按键会产生 RAWKEYDOWN / KEYDOWN / CHAR 多个事件，不过滤会重复触发。
+- **CEF 的修饰键位与 AWT 不同**，需要显式换算：`EVENTFLAG_SHIFT_DOWN = 1 shl 1`、`CONTROL = 1 shl 2`、`ALT = 1 shl 3`，映射到 `InputEvent.*_DOWN_MASK`。Windows 下 `windows_key_code` 与 AWT 的 `VK_*` 对于字母、数字、方向键是一致的。
+
+回调在 CEF 线程上，执行 action 必须 `invokeLater` 回 EDT。
+
 **监听器必须装进每个 frame。** 内容跑在 iframe 里时，焦点在 iframe 内，按键根本不经过顶层 `document`。好在 CEF 允许对任意 frame 执行脚本，不受同源策略限制：
 
 ```kotlin

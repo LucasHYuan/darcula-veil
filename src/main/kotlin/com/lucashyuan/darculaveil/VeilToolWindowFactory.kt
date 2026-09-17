@@ -22,7 +22,7 @@ import javax.swing.SwingConstants
 class VeilToolWindowFactory : ToolWindowFactory, DumbAware {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val panel = if (JBCefApp.isSupported()) VeilBrowserPanel() else null
+        val panel = if (JBCefApp.isSupported()) VeilBrowserPanel(project) else null
         val component: JComponent = panel ?: unsupportedPlaceholder()
         val content = ContentFactory.getInstance().createContent(component, "", false)
 
