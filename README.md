@@ -138,6 +138,19 @@ CefRenderHandler.onPaint(browser, type, dirtyRects, buffer, width, height)
 - `input` / `textarea` / `isContentEditable` 里不拦截，否则输入框里按方向键会翻页。
 - 带 Ctrl / Alt / Meta 时不拦截，把组合键让给页面和 IDE。
 
+**监听器必须装进每个 frame。** 内容跑在 iframe 里时，焦点在 iframe 内，按键根本不经过顶层 `document`。好在 CEF 允许对任意 frame 执行脚本，不受同源策略限制：
+
+```kotlin
+cefBrowser.frameNames.forEach { name ->
+    val frame = cefBrowser.getFrameByName(name) ?: return@forEach
+    frame.executeJavaScript(script, frame.url ?: "", 0)
+}
+```
+
+注意这个 JCEF 版本的 API 是 `getFrameByName` / `getFrameByIdentifier`，没有 `getFrame`。
+
+**滚动容器通常也不是 document。** 阅读器多用内层 `div` 滚动，`window.scrollBy` 打在顶层文档上完全无效。`__darculaVeilScroller()` 会扫描 `overflow-y` 为 `auto` / `scroll` 且高度超过视口 40% 的元素，挑 `scrollHeight - clientHeight` 最大的那个，取不到才回落到 `document.scrollingElement`。
+
 翻页动作本身是可切换策略，与色板、呈现模式同一套模式：
 
 | id | 行为 |

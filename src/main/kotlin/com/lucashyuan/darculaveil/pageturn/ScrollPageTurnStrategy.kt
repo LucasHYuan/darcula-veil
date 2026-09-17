@@ -14,12 +14,12 @@ object ScrollPageTurnStrategy : VeilPageTurnStrategy {
         val ratio = settings.pageTurnScrollPercent.coerceIn(10, 100)
 
         return """
-            var amount = Math.round(window.innerHeight * $ratio / 100);
-            var scroller = document.scrollingElement || document.documentElement;
+            var scroller = window.__darculaVeilScroller();
+            var amount = Math.round(scroller.clientHeight * $ratio / 100);
             var before = scroller.scrollTop;
-            window.scrollBy({ top: direction * amount, left: 0, behavior: "smooth" });
+            scroller.scrollTop = before + direction * amount;
             if (scroller.scrollTop === before) {
-                scroller.scrollTop = before + direction * amount;
+                window.scrollBy(0, direction * amount);
             }
         """.trimIndent()
     }

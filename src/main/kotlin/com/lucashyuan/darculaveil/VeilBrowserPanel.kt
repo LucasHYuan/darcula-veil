@@ -62,11 +62,15 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
 
     fun refreshVeil() {
         executeScript(buildVeilScript())
-        executeScript(VeilPageTurnScript.buildInstallScript(VeilSettings.state()))
+        executeInAllFrames(VeilPageTurnScript.buildInstallScript(VeilSettings.state()))
     }
 
     fun turnPage(direction: Int) {
-        executeScript(VeilPageTurnScript.buildTurnCall(direction))
+        executeInAllFrames(VeilPageTurnScript.buildTurnCall(direction))
+    }
+
+    fun showPageTurnDiagnostics() {
+        executeInAllFrames(VeilPageTurnScript.buildDiagnosticScript())
     }
 
     override fun dispose() {
@@ -136,5 +140,17 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
     private fun executeScript(script: String) {
         val cefBrowser = browser.cefBrowser
         cefBrowser.executeJavaScript(script, cefBrowser.url ?: "", 0)
+    }
+
+    private fun executeInAllFrames(script: String) {
+        executeScript(script)
+
+        val cefBrowser = browser.cefBrowser
+
+        cefBrowser.frameNames.forEach { name ->
+            val frame = cefBrowser.getFrameByName(name) ?: return@forEach
+
+            frame.executeJavaScript(script, frame.url ?: "", 0)
+        }
     }
 }

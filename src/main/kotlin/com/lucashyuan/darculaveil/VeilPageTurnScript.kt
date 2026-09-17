@@ -7,6 +7,8 @@ object VeilPageTurnScript {
 
     private const val TURN_PROPERTY = "__darculaVeilTurn"
     private const val LISTENER_PROPERTY = "__darculaVeilTurnKeys"
+    private const val SCROLLER_PROPERTY = "__darculaVeilScroller"
+    private const val DIAGNOSTIC_ELEMENT_ID = "darcula-veil-diagnostic"
 
     fun buildInstallScript(settings: VeilSettings.State): String {
         val body = VeilPageTurnStrategies.byId(settings.pageTurnStrategyId).buildTurnBody(settings)
@@ -15,6 +17,31 @@ object VeilPageTurnScript {
 
         return """
             (function() {
+                window.$SCROLLER_PROPERTY = function() {
+                    var fallback = document.scrollingElement || document.documentElement;
+                    var best = fallback;
+                    var bestGap = fallback.scrollHeight - fallback.clientHeight;
+                    var candidates = document.querySelectorAll("div,main,section,article");
+
+                    for (var i = 0; i < candidates.length; i++) {
+                        var node = candidates[i];
+                        if (node.clientHeight < window.innerHeight * 0.4) {
+                            continue;
+                        }
+                        var overflow = window.getComputedStyle(node).overflowY;
+                        if (overflow !== "auto" && overflow !== "scroll") {
+                            continue;
+                        }
+                        var gap = node.scrollHeight - node.clientHeight;
+                        if (gap > bestGap) {
+                            best = node;
+                            bestGap = gap;
+                        }
+                    }
+
+                    return best;
+                };
+
                 window.$TURN_PROPERTY = function(direction) {
                     $body
                 };
@@ -58,6 +85,54 @@ object VeilPageTurnScript {
 
     fun buildTurnCall(direction: Int): String {
         return "if (window.$TURN_PROPERTY) { window.$TURN_PROPERTY($direction); }"
+    }
+
+    fun buildDiagnosticScript(): String {
+        return """
+            (function() {
+                var scroller = window.$SCROLLER_PROPERTY ? window.$SCROLLER_PROPERTY() : null;
+                var describe = function(node) {
+                    if (!node) {
+                        return "none";
+                    }
+                    var name = node.tagName ? node.tagName.toLowerCase() : "?";
+                    if (node.id) {
+                        name = name + "#" + node.id;
+                    }
+                    if (node.className && typeof node.className === "string") {
+                        name = name + "." + node.className.trim().split(/\s+/).slice(0, 2).join(".");
+                    }
+                    return name + "  scrollHeight=" + node.scrollHeight + " clientHeight=" + node.clientHeight;
+                };
+
+                var lines = [
+                    "frame: " + (window.top === window ? "TOP" : "CHILD"),
+                    "url: " + location.href,
+                    "child frames: " + window.frames.length,
+                    "turn fn installed: " + (typeof window.$TURN_PROPERTY === "function"),
+                    "key listener installed: " + (typeof window.$LISTENER_PROPERTY === "function"),
+                    "scroller: " + describe(scroller),
+                    "document scroller: " + describe(document.scrollingElement || document.documentElement)
+                ];
+
+                var existing = document.getElementById("$DIAGNOSTIC_ELEMENT_ID");
+                if (existing && existing.parentNode) {
+                    existing.parentNode.removeChild(existing);
+                }
+
+                var box = document.createElement("div");
+                box.id = "$DIAGNOSTIC_ELEMENT_ID";
+                box.setAttribute("style", "position:fixed;left:8px;top:8px;z-index:2147483647;max-width:90vw;padding:10px 14px;background:#1e1f22;color:#bcbec4;font:12px/1.6 Consolas,monospace;white-space:pre;border:1px solid #4a4b4f;pointer-events:none;");
+                box.textContent = lines.join("\n");
+                (document.body || document.documentElement).appendChild(box);
+
+                setTimeout(function() {
+                    if (box.parentNode) {
+                        box.parentNode.removeChild(box);
+                    }
+                }, 12000);
+            })();
+        """.trimIndent()
     }
 
     private fun toJsLiteral(value: String): String = "\"" + StringUtil.escapeStringCharacters(value) + "\""
