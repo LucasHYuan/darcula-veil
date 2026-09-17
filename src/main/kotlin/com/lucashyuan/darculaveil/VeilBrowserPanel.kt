@@ -7,11 +7,14 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.colors.EditorColorsListener
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.EditorColorsScheme
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.keymap.Keymap
 import com.intellij.openapi.keymap.KeymapManagerListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefBrowser
+import com.intellij.ui.jcef.JBCefBrowserBase
+import com.intellij.ui.jcef.JBCefJSQuery
 import com.intellij.util.ui.UIUtil
 import com.lucashyuan.darculaveil.style.VeilStyleStrategies
 import org.cef.browser.CefBrowser
@@ -27,16 +30,20 @@ import javax.swing.JPanel
 
 class VeilBrowserPanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
 
-    private val browser = JBCefBrowser(VeilSettings.state().homeUrl)
+    private val browser = JBCefBrowser()
+    private val diagnosticQuery = JBCefJSQuery.create(browser as JBCefBrowserBase)
 
     init {
         Disposer.register(this, browser)
+        Disposer.register(this, diagnosticQuery)
+        installDiagnosticHandler()
         background = UIUtil.getPanelBackground()
         add(browser.component, BorderLayout.CENTER)
         installLoadHandler()
         installLifeSpanHandler()
         installKeyboardHandler()
         subscribeToStateChanges()
+        browser.loadURL(VeilSettings.state().homeUrl)
     }
 
     fun loadUrl(url: String) {
@@ -77,7 +84,7 @@ class VeilBrowserPanel(private val project: Project) : JPanel(BorderLayout()), D
     }
 
     fun showPageTurnDiagnostics() {
-        executeInAllFrames(VeilPageTurnScript.buildDiagnosticScript())
+        executeInAllFrames(VeilPageTurnScript.buildDiagnosticScript { expression -> diagnosticQuery.inject(expression) })
     }
 
     override fun dispose() {
@@ -107,6 +114,14 @@ class VeilBrowserPanel(private val project: Project) : JPanel(BorderLayout()), D
         }
 
         browser.jbCefClient.addLoadHandler(handler, browser.cefBrowser)
+    }
+
+    private fun installDiagnosticHandler() {
+        diagnosticQuery.addHandler { report ->
+            LOG.info("Darcula Veil page turn diagnostics\n$report")
+
+            null
+        }
     }
 
     private fun installKeyboardHandler() {
@@ -191,5 +206,9 @@ class VeilBrowserPanel(private val project: Project) : JPanel(BorderLayout()), D
 
             frame.executeJavaScript(script, frame.url ?: "", 0)
         }
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(VeilBrowserPanel::class.java)
     }
 }

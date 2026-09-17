@@ -164,7 +164,7 @@ object VeilPageTurnScript {
         return "if (window.$TURN_PROPERTY) { window.$TURN_PROPERTY($direction); }"
     }
 
-    fun buildDiagnosticScript(): String {
+    fun buildDiagnosticScript(reportInjection: (String) -> String): String {
         return """
             (function() {
                 var scroller = window.$SCROLLER_PROPERTY ? window.$SCROLLER_PROPERTY() : null;
@@ -189,7 +189,8 @@ object VeilPageTurnScript {
                     "turn fn installed: " + (typeof window.$TURN_PROPERTY === "function"),
                     "key listener installed: " + (typeof window.$LISTENER_PROPERTY === "function"),
                     "wheel listener installed: " + (typeof window.$WHEEL_PROPERTY === "function"),
-                    "wheel bindings from keymap: " + ${VeilKeymapBridge.buildWheelBindingsLiteral()}.length,
+                    "wheel bindings from keymap: " + JSON.stringify(${VeilKeymapBridge.buildWheelBindingsLiteral()}),
+                    "raw keymap shortcuts: " + ${toJsLiteral(VeilKeymapBridge.describeWheelShortcuts())},
                     "scroller: " + describe(scroller),
                     "document scroller: " + describe(document.scrollingElement || document.documentElement),
                     "counters: " + JSON.stringify(window.$COUNTER_PROPERTY || {}),
@@ -210,6 +211,9 @@ object VeilPageTurnScript {
                 if (existing && existing.parentNode) {
                     existing.parentNode.removeChild(existing);
                 }
+
+                var payload = lines.join("\n");
+                ${reportInjection("payload")}
 
                 var box = document.createElement("div");
                 box.id = "$DIAGNOSTIC_ELEMENT_ID";
