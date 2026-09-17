@@ -200,8 +200,9 @@ class VeilBrowserPanel(private val project: Project) : JPanel(BorderLayout()), D
         executeScript(script)
 
         val cefBrowser = browser.cefBrowser
+        val names: Collection<String> = cefBrowser.frameNames ?: return
 
-        cefBrowser.frameNames.forEach { name ->
+        names.forEach { name ->
             val frame = cefBrowser.getFrameByName(name) ?: return@forEach
 
             frame.executeJavaScript(script, frame.url ?: "", 0)
