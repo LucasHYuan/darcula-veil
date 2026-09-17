@@ -27,24 +27,16 @@ object PaletteStyleStrategy : VeilStyleStrategy {
     }
 
     private fun buildCss(palette: List<Color>, settings: VeilSettings.State): String {
-        if (settings.webVignettePercent <= 0) {
-            return "html{filter:url(#$FILTER_ELEMENT_ID);}"
-        }
-
-        val edge = toHex(palette.last())
-        val opacity = String.format(Locale.ROOT, "%.2f", settings.webVignettePercent / 100.0)
-        val clearRadius = settings.webVignetteCenterPercent.coerceIn(0, 95)
-
-        return buildString {
-            append("html{background-color:").append(edge).append(";}")
-            append("body{filter:url(#").append(FILTER_ELEMENT_ID).append(");}")
-            append("html::after{content:\"\";position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:2147483647;")
-            append("opacity:").append(opacity).append(";")
-            append("background:radial-gradient(ellipse at center,rgba(0,0,0,0) ").append(clearRadius).append("%,").append(edge).append(" 100%);}")
-        }
+        return VeilVignette.wrap("url(#$FILTER_ELEMENT_ID)", resolveEdgeColor(palette, settings), settings)
     }
 
-    private fun toHex(color: Color): String = String.format(Locale.ROOT, "#%02x%02x%02x", color.red, color.green, color.blue)
+    private fun resolveEdgeColor(palette: List<Color>, settings: VeilSettings.State): Color {
+        if (settings.paletteReversed) {
+            return palette.last()
+        }
+
+        return palette.first()
+    }
 
     fun buildPalette(settings: VeilSettings.State): List<Color> {
         val ramp = VeilPaletteProviders.byId(settings.paletteSourceId).buildRamp(settings)

@@ -1,5 +1,6 @@
 package com.lucashyuan.darculaveil.style
 
+import com.intellij.util.ui.UIUtil
 import com.lucashyuan.darculaveil.VeilSettings
 import java.util.Locale
 
@@ -15,7 +16,7 @@ object FilterStyleStrategy : VeilStyleStrategy {
 
     override fun buildDocument(settings: VeilSettings.State): VeilStyleDocument {
         val rules = StringBuilder()
-        rules.append("html{filter:").append(buildFilterChain(settings)).append(";}")
+        rules.append(VeilVignette.wrap(buildFilterChain(settings), UIUtil.getPanelBackground(), settings))
 
         if (settings.revertMedia) {
             rules.append(MEDIA_SELECTORS).append("{filter:invert(1) hue-rotate(180deg);}")
