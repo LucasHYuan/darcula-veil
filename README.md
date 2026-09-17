@@ -182,6 +182,14 @@ cefBrowser.frameNames.forEach { name ->
 
 注意这个 JCEF 版本的 API 是 `getFrameByName` / `getFrameByIdentifier`，没有 `getFrame`。
 
+**有些页面压根没有可滚动容器。** 实测微信读书：全页最大的 `scrollHeight - clientHeight` 只有 58px，但页面能正常滚动——说明滚动是它自己监听 `wheel` 用 JS 实现的（transform 或重渲染），没有任何元素具备原生滚动距离。
+
+对这类页面，**任何基于 `scrollTop` 的方案都不可能生效**，容器探测做得再准也没用。诊断浮层的 `scrollable candidates` 列表就是用来判定这一点的：gap 全是两位数即可直接排除 `scroll` 模式。
+
+可行的是反过来利用它：既然页面自己监听 `wheel`，那就给它派发一个合成 `WheelEvent`。合成事件不会触发浏览器的原生滚动（`isTrusted` 为 false），但**页面自己的 JS 监听器照样会收到**，于是它的翻页逻辑被正常驱动。这就是 `synthesize-wheel` 模式。
+
+注意我们自己的 `wheel` 监听器第一行就是 `if (!event.isTrusted) return;`，因此不会接住自己派发的事件形成递归。
+
 **滚动容器通常也不是 document。** 阅读器多用内层 `div` 滚动，`window.scrollBy` 打在顶层文档上完全无效。`__darculaVeilScroller()` 会扫描 `overflow-y` 为 `auto` / `scroll` 且高度超过视口 40% 的元素，挑 `scrollHeight - clientHeight` 最大的那个，取不到才回落到 `document.scrollingElement`。
 
 翻页动作本身是可切换策略，与色板、呈现模式同一套模式：
@@ -189,6 +197,7 @@ cefBrowser.frameNames.forEach { name ->
 | id | 行为 |
 |---|---|
 | `scroll` | 按视口高度百分比滚动，`scrollBy` 无效时直接写 `scrollTop` 兜底 |
+| `synthesize-wheel` | 向视口中心的元素派发合成 `WheelEvent`，驱动页面自己的滚动实现 |
 | `arrow-keys` | 向 `document` / `body` / `activeElement` 派发方向键事件，交给页面自己的翻页逻辑 |
 | `click-selector` | 按配置的 CSS 选择器找到翻页按钮并 `click()` |
 
