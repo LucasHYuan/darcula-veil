@@ -2,7 +2,7 @@ package com.lucashyuan.darculaveil.pageturn
 
 object VeilPageTurnStrategies {
 
-    val ALL: List<VeilPageTurnStrategy> = listOf(ScrollPageTurnStrategy, SynthesizeWheelPageTurnStrategy, ArrowKeyPageTurnStrategy, ClickSelectorPageTurnStrategy)
+    val ALL: List<VeilPageTurnStrategy> = listOf(ArrowKeyPageTurnStrategy, ScrollPageTurnStrategy, SynthesizeWheelPageTurnStrategy, HorizontalWheelPageTurnStrategy, ClickSelectorPageTurnStrategy)
 
     fun byId(id: String): VeilPageTurnStrategy = ALL.firstOrNull { it.id == id } ?: ScrollPageTurnStrategy
 

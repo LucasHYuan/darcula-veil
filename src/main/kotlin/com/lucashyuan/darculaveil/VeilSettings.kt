@@ -40,6 +40,7 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         @JvmField var pageTurnScrollPercent: Int = DEFAULT_PAGE_TURN_SCROLL_PERCENT
         @JvmField var pageTurnKeysEnabled: Boolean = true
         @JvmField var keymapBridgeEnabled: Boolean = true
+        @JvmField var pageTurnWheelMirrorEnabled: Boolean = false
         @JvmField var pageTurnForwardKey: String = "ArrowRight"
         @JvmField var pageTurnBackwardKey: String = "ArrowLeft"
         @JvmField var pageTurnForwardSelector: String = ""

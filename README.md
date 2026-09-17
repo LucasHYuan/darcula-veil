@@ -182,6 +182,38 @@ cefBrowser.frameNames.forEach { name ->
 
 注意这个 JCEF 版本的 API 是 `getFrameByName` / `getFrameByIdentifier`，没有 `getFrame`。
 
+### 实测记录：微信读书为什么翻不了页
+
+这一节是排查过程的完整结论，因为中途有三个判断被数据推翻。
+
+诊断日志（TOP frame，Shift+滚轮 26 次后）：
+
+```
+url: https://weread.qq.com/web/reader/...
+child frames: 1
+raw keymap shortcuts: DarculaVeil.PageForward=[mouse(button=143,mod=64)]
+wheel bindings from keymap: [{"up":true,"shift":true,"direction":1}, ...]
+scroller: div.wr_horizontalReader_app_content  scrollHeight=446 clientHeight=388
+counters: {"wheelSeen":26,"wheelMatched":26,"turned":78,"moved":41}
+```
+
+被推翻的三个判断：
+
+| 我的判断 | 数据说明 |
+|---|---|
+| 「修饰键用了旧式掩码，所以匹配不上」 | `mod=64` 正是 `SHIFT_DOWN_MASK`，解析一直正确 |
+| 「IDE 的鼠标快捷键到不了 JCEF 上」 | 子 frame `wheelSeen=0` 却 `turned=26`——子 frame 的翻页函数只可能由 `executeInAllFrames` 调用，而那只有 IDE action 会触发，**说明 AWT 收得到 JCEF 上的滚轮事件** |
+| 「滚动是页面用 JS 实现的」 | `moved=41` 说明 `scrollTop` 真的变了，是原生滚动 |
+
+真实原因是类名写着的：`wr_horizontalReader`——**横向翻页阅读器**。纵向那 58px 只是排版余量，滚到底就没了，纵向操作无论如何不可能翻页。
+
+两个后果：
+
+- **页面内的 wheel 镜像是多余的**，而且和 IDE action 路径重复触发（26 次滚动产生 78 次翻页）。因此 `pageTurnWheelMirrorEnabled` 默认关闭，只保留 IDE 路径。
+- **横向阅读器需要横向或按键驱动**，为此加了 `horizontal-wheel` 模式，并把 `arrow-keys` 提到策略列表首位作为更通用的默认。
+
+教训：诊断必须能落盘。最初的诊断只画在页面里，导致好几轮都在靠转述推进；接上 `JBCefJSQuery` 回传日志之后，一次就定位了。
+
 **有些页面压根没有可滚动容器。** 实测微信读书：全页最大的 `scrollHeight - clientHeight` 只有 58px，但页面能正常滚动——说明滚动是它自己监听 `wheel` 用 JS 实现的（transform 或重渲染），没有任何元素具备原生滚动距离。
 
 对这类页面，**任何基于 `scrollTop` 的方案都不可能生效**，容器探测做得再准也没用。诊断浮层的 `scrollable candidates` 列表就是用来判定这一点的：gap 全是两位数即可直接排除 `scroll` 模式。

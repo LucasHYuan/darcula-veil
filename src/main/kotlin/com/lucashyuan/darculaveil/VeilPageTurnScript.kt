@@ -94,7 +94,7 @@ object VeilPageTurnScript {
                     window.$WHEEL_PROPERTY = null;
                 }
 
-                var wheelBindings = ${VeilKeymapBridge.buildWheelBindingsLiteral()};
+                var wheelBindings = ${if (settings.pageTurnWheelMirrorEnabled) VeilKeymapBridge.buildWheelBindingsLiteral() else "[]"};
 
                 if (wheelBindings.length > 0) {
                     window.$WHEEL_PROPERTY = function(event) {
