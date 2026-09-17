@@ -8,6 +8,7 @@ object VeilPageTurnScript {
     private const val TURN_PROPERTY = "__darculaVeilTurn"
     private const val LISTENER_PROPERTY = "__darculaVeilTurnKeys"
     private const val SCROLLER_PROPERTY = "__darculaVeilScroller"
+    private const val WHEEL_PROPERTY = "__darculaVeilTurnWheel"
     private const val DIAGNOSTIC_ELEMENT_ID = "darcula-veil-diagnostic"
 
     fun buildInstallScript(settings: VeilSettings.State): String {
@@ -46,6 +47,37 @@ object VeilPageTurnScript {
                     $body
                 };
 
+                if (window.$WHEEL_PROPERTY) {
+                    document.removeEventListener("wheel", window.$WHEEL_PROPERTY, true);
+                    window.$WHEEL_PROPERTY = null;
+                }
+
+                var wheelBindings = ${VeilKeymapBridge.buildWheelBindingsLiteral()};
+
+                if (wheelBindings.length > 0) {
+                    window.$WHEEL_PROPERTY = function(event) {
+                        if (!event.isTrusted) {
+                            return;
+                        }
+                        var up = event.deltaY < 0;
+                        for (var i = 0; i < wheelBindings.length; i++) {
+                            var binding = wheelBindings[i];
+                            if (binding.up !== up) {
+                                continue;
+                            }
+                            if (binding.shift !== event.shiftKey || binding.ctrl !== event.ctrlKey || binding.alt !== event.altKey) {
+                                continue;
+                            }
+                            window.$TURN_PROPERTY(binding.direction);
+                            event.preventDefault();
+                            event.stopPropagation();
+                            return;
+                        }
+                    };
+
+                    document.addEventListener("wheel", window.$WHEEL_PROPERTY, { capture: true, passive: false });
+                }
+
                 if (window.$LISTENER_PROPERTY) {
                     document.removeEventListener("keydown", window.$LISTENER_PROPERTY, true);
                     window.$LISTENER_PROPERTY = null;
@@ -79,6 +111,7 @@ object VeilPageTurnScript {
                 };
 
                 document.addEventListener("keydown", window.$LISTENER_PROPERTY, true);
+
             })();
         """.trimIndent()
     }
@@ -111,6 +144,8 @@ object VeilPageTurnScript {
                     "child frames: " + window.frames.length,
                     "turn fn installed: " + (typeof window.$TURN_PROPERTY === "function"),
                     "key listener installed: " + (typeof window.$LISTENER_PROPERTY === "function"),
+                    "wheel listener installed: " + (typeof window.$WHEEL_PROPERTY === "function"),
+                    "wheel bindings from keymap: " + ${VeilKeymapBridge.buildWheelBindingsLiteral()}.length,
                     "scroller: " + describe(scroller),
                     "document scroller: " + describe(document.scrollingElement || document.documentElement)
                 ];

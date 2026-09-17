@@ -7,6 +7,8 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.colors.EditorColorsListener
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.EditorColorsScheme
+import com.intellij.openapi.keymap.Keymap
+import com.intellij.openapi.keymap.KeymapManagerListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefBrowser
@@ -161,6 +163,16 @@ class VeilBrowserPanel(private val project: Project) : JPanel(BorderLayout()), D
 
         connection.subscribe(EditorColorsManager.TOPIC, EditorColorsListener { _: EditorColorsScheme? ->
             refreshVeil()
+        })
+
+        connection.subscribe(KeymapManagerListener.TOPIC, object : KeymapManagerListener {
+            override fun activeKeymapChanged(keymap: Keymap?) {
+                refreshVeil()
+            }
+
+            override fun shortcutChanged(keymap: Keymap, actionId: String) {
+                refreshVeil()
+            }
         })
     }
 

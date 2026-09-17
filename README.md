@@ -163,6 +163,14 @@ override fun onPreKeyEvent(cefBrowser: CefBrowser, event: CefKeyboardHandler.Cef
 
 回调在 CEF 线程上，执行 action 必须 `invokeLater` 回 EDT。
 
+**鼠标快捷键走的是另一条路。** `CefKeyboardHandler` 只管键盘，JCEF 没有对应的鼠标 handler，滚轮事件直接进 Chromium，桥接拦不到。
+
+所以改为从 keymap **读出**绑定再镜像进页面：`activeKeymap.getShortcuts(actionId)` 取出 `MouseShortcut`，筛 `BUTTON_WHEEL_UP` / `BUTTON_WHEEL_DOWN`，连同修饰键生成一段 JS 字面量，注入的 `wheel` 监听器按它匹配。keymap 仍然是唯一真源，只是执行点从 IDE 挪到了页面内。
+
+监听器必须 `{ capture: true, passive: false }`——不加 `passive: false` 就调不了 `preventDefault()`，Shift+滚轮会在翻页的同时触发 Chromium 默认的横向滚动。
+
+改绑后需要重新注入才生效，因此 `KeymapManagerListener.TOPIC` 的 `shortcutChanged` / `activeKeymapChanged` 都会触发一次刷新。
+
 **监听器必须装进每个 frame。** 内容跑在 iframe 里时，焦点在 iframe 内，按键根本不经过顶层 `document`。好在 CEF 允许对任意 frame 执行脚本，不受同源策略限制：
 
 ```kotlin
