@@ -9,6 +9,7 @@ import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.FormBuilder
+import com.lucashyuan.darculaveil.pageturn.VeilPageTurnStrategies
 import com.lucashyuan.darculaveil.palette.VeilPaletteProviders
 import com.lucashyuan.darculaveil.style.PaletteStyleStrategy
 import com.lucashyuan.darculaveil.style.VeilStyleStrategies
@@ -37,6 +38,14 @@ class VeilConfigurable : Configurable {
     private val brightnessSpinner = buildPercentSpinner()
     private val contrastSpinner = buildPercentSpinner()
     private val revertMediaCheckBox = JBCheckBox("Restore original colors on images and video")
+
+    private val pageTurnStrategyBox = ComboBox(VeilPageTurnStrategies.displayNames().toTypedArray())
+    private val pageTurnScrollSpinner = buildSpinner(VeilSettings.MIN_PAGE_TURN_SCROLL_PERCENT, 100)
+    private val pageTurnKeysCheckBox = JBCheckBox("Handle page turn keys inside the page")
+    private val pageTurnForwardKeyField = JBTextField()
+    private val pageTurnBackwardKeyField = JBTextField()
+    private val pageTurnForwardSelectorField = JBTextField()
+    private val pageTurnBackwardSelectorField = JBTextField()
 
     private val nativeFocusTransferCheckBox = JBCheckBox("Transfer keyboard focus on click (AttachThreadInput)")
     private val nativeLayeredCheckBox = JBCheckBox("Also make the target window itself translucent (WS_EX_LAYERED)")
@@ -74,6 +83,15 @@ class VeilConfigurable : Configurable {
             .addLabeledComponent(JBLabel("Brightness (%):"), brightnessSpinner, 1, false)
             .addLabeledComponent(JBLabel("Contrast (%):"), contrastSpinner, 1, false)
             .addComponent(revertMediaCheckBox)
+            .addComponent(TitledSeparator("Page Turning"))
+            .addLabeledComponent(JBLabel("Turn mode:"), pageTurnStrategyBox, 1, false)
+            .addLabeledComponent(JBLabel("Scroll amount (% of viewport):"), pageTurnScrollSpinner, 1, false)
+            .addLabeledComponent(JBLabel("Next page CSS selector:"), pageTurnForwardSelectorField, 1, false)
+            .addLabeledComponent(JBLabel("Previous page CSS selector:"), pageTurnBackwardSelectorField, 1, false)
+            .addComponent(pageTurnKeysCheckBox)
+            .addLabeledComponent(JBLabel("Forward key (KeyboardEvent.key):"), pageTurnForwardKeyField, 1, false)
+            .addLabeledComponent(JBLabel("Backward key (KeyboardEvent.key):"), pageTurnBackwardKeyField, 1, false)
+            .addComponentToRightColumn(JBLabel("<html>Keys are handled by a listener injected into the page, because a focused<br>JCEF window consumes keystrokes before the IDE action system sees them.<br>DarculaVeil.PageForward / PageBackward are also available in Keymap.</html>"))
             .addComponent(TitledSeparator("Native Window Embedding"))
             .addComponent(overlayEnabledCheckBox)
             .addLabeledComponent(JBLabel("Overlay tint (%):"), overlayTintSpinner, 1, false)
@@ -109,6 +127,13 @@ class VeilConfigurable : Configurable {
             || value(brightnessSpinner) != settings.brightnessPercent
             || value(contrastSpinner) != settings.contrastPercent
             || revertMediaCheckBox.isSelected != settings.revertMedia
+            || selectedPageTurnStrategyId() != settings.pageTurnStrategyId
+            || value(pageTurnScrollSpinner) != settings.pageTurnScrollPercent
+            || pageTurnKeysCheckBox.isSelected != settings.pageTurnKeysEnabled
+            || pageTurnForwardKeyField.text != settings.pageTurnForwardKey
+            || pageTurnBackwardKeyField.text != settings.pageTurnBackwardKey
+            || pageTurnForwardSelectorField.text != settings.pageTurnForwardSelector
+            || pageTurnBackwardSelectorField.text != settings.pageTurnBackwardSelector
             || nativeFocusTransferCheckBox.isSelected != settings.nativeFocusTransferEnabled
             || nativeLayeredCheckBox.isSelected != settings.nativeLayeredEnabled
             || value(nativeOpacitySpinner) != settings.nativeOpacityPercent
@@ -137,6 +162,13 @@ class VeilConfigurable : Configurable {
         settings.brightnessPercent = value(brightnessSpinner)
         settings.contrastPercent = value(contrastSpinner)
         settings.revertMedia = revertMediaCheckBox.isSelected
+        settings.pageTurnStrategyId = selectedPageTurnStrategyId()
+        settings.pageTurnScrollPercent = value(pageTurnScrollSpinner)
+        settings.pageTurnKeysEnabled = pageTurnKeysCheckBox.isSelected
+        settings.pageTurnForwardKey = pageTurnForwardKeyField.text
+        settings.pageTurnBackwardKey = pageTurnBackwardKeyField.text
+        settings.pageTurnForwardSelector = pageTurnForwardSelectorField.text
+        settings.pageTurnBackwardSelector = pageTurnBackwardSelectorField.text
         settings.nativeFocusTransferEnabled = nativeFocusTransferCheckBox.isSelected
         settings.nativeLayeredEnabled = nativeLayeredCheckBox.isSelected
         settings.nativeOpacityPercent = value(nativeOpacitySpinner)
@@ -167,6 +199,13 @@ class VeilConfigurable : Configurable {
         brightnessSpinner.value = settings.brightnessPercent
         contrastSpinner.value = settings.contrastPercent
         revertMediaCheckBox.isSelected = settings.revertMedia
+        pageTurnStrategyBox.selectedItem = VeilPageTurnStrategies.byId(settings.pageTurnStrategyId).displayName
+        pageTurnScrollSpinner.value = settings.pageTurnScrollPercent
+        pageTurnKeysCheckBox.isSelected = settings.pageTurnKeysEnabled
+        pageTurnForwardKeyField.text = settings.pageTurnForwardKey
+        pageTurnBackwardKeyField.text = settings.pageTurnBackwardKey
+        pageTurnForwardSelectorField.text = settings.pageTurnForwardSelector
+        pageTurnBackwardSelectorField.text = settings.pageTurnBackwardSelector
         nativeFocusTransferCheckBox.isSelected = settings.nativeFocusTransferEnabled
         nativeLayeredCheckBox.isSelected = settings.nativeLayeredEnabled
         nativeOpacitySpinner.value = settings.nativeOpacityPercent
@@ -206,6 +245,8 @@ class VeilConfigurable : Configurable {
     }
 
     private fun selectedStyleModeId(): String = VeilStyleStrategies.byDisplayName(styleModeBox.selectedItem as String).id
+
+    private fun selectedPageTurnStrategyId(): String = VeilPageTurnStrategies.byDisplayName(pageTurnStrategyBox.selectedItem as String).id
 
     private fun selectedPaletteSourceId(): String = VeilPaletteProviders.byDisplayName(paletteSourceBox.selectedItem as String).id
 

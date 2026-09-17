@@ -6,6 +6,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.util.xmlb.XmlSerializerUtil
+import com.lucashyuan.darculaveil.pageturn.ScrollPageTurnStrategy
 import com.lucashyuan.darculaveil.palette.MonochromePaletteProvider
 import com.lucashyuan.darculaveil.style.PaletteStyleStrategy
 
@@ -34,6 +35,14 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         @JvmField var brightnessPercent: Int = 95
         @JvmField var contrastPercent: Int = 100
         @JvmField var revertMedia: Boolean = true
+
+        @JvmField var pageTurnStrategyId: String = ScrollPageTurnStrategy.ID
+        @JvmField var pageTurnScrollPercent: Int = DEFAULT_PAGE_TURN_SCROLL_PERCENT
+        @JvmField var pageTurnKeysEnabled: Boolean = true
+        @JvmField var pageTurnForwardKey: String = "ArrowRight"
+        @JvmField var pageTurnBackwardKey: String = "ArrowLeft"
+        @JvmField var pageTurnForwardSelector: String = ""
+        @JvmField var pageTurnBackwardSelector: String = ""
 
         @JvmField var nativeFocusTransferEnabled: Boolean = true
         @JvmField var nativeLayeredEnabled: Boolean = false
@@ -69,6 +78,8 @@ class VeilSettings : PersistentStateComponent<VeilSettings.State> {
         const val DEFAULT_NATIVE_OPACITY_PERCENT = 100
         const val MIN_NATIVE_OPACITY_PERCENT = 10
         const val MAX_NATIVE_OPACITY_PERCENT = 100
+        const val DEFAULT_PAGE_TURN_SCROLL_PERCENT = 90
+        const val MIN_PAGE_TURN_SCROLL_PERCENT = 10
         const val DEFAULT_WEB_VIGNETTE_PERCENT = 45
         const val DEFAULT_WEB_VIGNETTE_CENTER_PERCENT = 35
         const val DEFAULT_OVERLAY_TINT_PERCENT = 30

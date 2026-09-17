@@ -62,6 +62,11 @@ class VeilBrowserPanel : JPanel(BorderLayout()), Disposable {
 
     fun refreshVeil() {
         executeScript(buildVeilScript())
+        executeScript(VeilPageTurnScript.buildInstallScript(VeilSettings.state()))
+    }
+
+    fun turnPage(direction: Int) {
+        executeScript(VeilPageTurnScript.buildTurnCall(direction))
     }
 
     override fun dispose() {

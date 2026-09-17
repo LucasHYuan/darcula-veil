@@ -126,7 +126,33 @@ CefRenderHandler.onPaint(browser, type, dirtyRects, buffer, width, height)
 - 帧率和延迟取决于 `onPaint` 回调频率，需要自己做节流。
 - 这条路等于放弃了 IntelliJ 封装好的 JBCefBrowser，直接对 JCEF 底层 API 编程，维护成本显著上升。
 
-### 2.4 媒体播放的两层限制
+### 2.4 翻页：为什么必须注入到页面里
+
+**JCEF 拿到焦点时会先吃掉按键，IDE 的 action 系统看不到。** 所以翻页快捷键如果只注册成 IDE action，在实际阅读时（焦点必然在网页上）大概率不触发。
+
+因此按键处理注入到页面内：`document.addEventListener("keydown", ..., true)` 捕获阶段拦截，命中就调 `window.__darculaVeilTurn(direction)`。IDE action 同时保留，用于焦点不在网页时，两者调用同一个函数。
+
+监听器有三道护栏：
+
+- `!event.isTrusted` 直接返回。否则"发送方向键"这个翻页模式派发的合成事件会被自己的监听器接住，无限递归。
+- `input` / `textarea` / `isContentEditable` 里不拦截，否则输入框里按方向键会翻页。
+- 带 Ctrl / Alt / Meta 时不拦截，把组合键让给页面和 IDE。
+
+翻页动作本身是可切换策略，与色板、呈现模式同一套模式：
+
+| id | 行为 |
+|---|---|
+| `scroll` | 按视口高度百分比滚动，`scrollBy` 无效时直接写 `scrollTop` 兜底 |
+| `arrow-keys` | 向 `document` / `body` / `activeElement` 派发方向键事件，交给页面自己的翻页逻辑 |
+| `click-selector` | 按配置的 CSS 选择器找到翻页按钮并 `click()` |
+
+### 2.5 扫码登录与滤镜的冲突
+
+二维码是纯黑白图形，而色板量化会把它**整体反色**（白底映射到色板暗端、黑块映射到亮端），多数扫码器读不了反色二维码；边缘渐晕还会压暗静默区。
+
+量化没有逆运算，也无法对单个元素豁免（祖先滤镜不可被后代撤销），所以没有"只放过二维码"的做法。扫码时按 `Ctrl+Alt+Shift+V` 关掉滤镜即可——该开关只改注入的样式，不重新加载页面，登录流程不受影响。
+
+### 2.6 媒体播放的两层限制
 
 **DRM：JCEF 不带 Widevine CDM。** 本机核对过 `plugins/jcef-plugin/jcef/` 下没有任何 widevine 组件。受 DRM 保护的流媒体在这条路线上放不了，这是发行版层面的限制，不是配置问题。本项目不尝试绕过，相关内容直接判为不支持。
 

@@ -42,5 +42,15 @@
                 description="Hide the Darcula Veil tool window and pause any playing media; press again to restore">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+
+        <action id="DarculaVeil.PageForward"
+                class="com.lucashyuan.darculaveil.action.PageForwardAction"
+                text="Darcula Veil: Next Page"
+                description="Turn the embedded page forward"/>
+
+        <action id="DarculaVeil.PageBackward"
+                class="com.lucashyuan.darculaveil.action.PageBackwardAction"
+                text="Darcula Veil: Previous Page"
+                description="Turn the embedded page backward"/>
     </actions>
 </idea-plugin>
